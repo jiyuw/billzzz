@@ -202,8 +202,9 @@
 				</svg>
 			</button>
 			{#if bucket.icon && iconMap[bucket.icon]}
+				{@const IconComponent = iconMap[bucket.icon]}
 				<div class="text-blue-600">
-					<svelte:component this={iconMap[bucket.icon]} size={32} />
+					<IconComponent size={32} />
 				</div>
 			{/if}
 			<h1 class="text-3xl font-bold text-gray-900">{bucket.name}</h1>

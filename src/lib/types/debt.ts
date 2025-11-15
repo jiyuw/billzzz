@@ -1,35 +1,13 @@
-import type { Debt, DebtPayment, DebtStrategySettings, Bill, DebtRateBucket } from '$lib/server/db/schema';
+import type { Debt, DebtPayment, DebtStrategySettings, Bill } from '$lib/server/db/schema';
 
 // Strategy types
 export type PayoffStrategy = 'snowball' | 'avalanche' | 'custom' | 'consolidation';
-export type PaymentAllocationStrategy = 'lowest-rate-first' | 'highest-rate-first' | 'oldest-first';
-
-// Rate bucket types
-export interface RateBucketWithBalance extends DebtRateBucket {
-	// Computed properties that may be useful
-	isExpired?: boolean;
-	daysUntilExpiration?: number | null;
-}
 
 // Extended debt type with linked bill and payment history
 export interface DebtWithDetails extends Debt {
 	linkedBill?: Bill | null;
 	payments?: DebtPayment[];
 	totalPaid?: number;
-	rateBuckets?: DebtRateBucket[];
-}
-
-// Monthly payment breakdown for a rate bucket
-export interface MonthlyBucketPayment {
-	bucketId: number;
-	bucketName: string;
-	payment: number;
-	principal: number;
-	interest: number;
-	remainingBalance: number;
-	interestRate: number;
-	isPromoExpired?: boolean; // Flag if promo expired this month
-	retroactiveInterest?: number; // Deferred interest charged if applicable
 }
 
 // Monthly payment breakdown for a single debt
@@ -40,7 +18,6 @@ export interface MonthlyDebtPayment {
 	principal: number;
 	interest: number;
 	remainingBalance: number;
-	bucketBreakdown?: MonthlyBucketPayment[]; // Per-bucket details if using rate buckets
 }
 
 // Complete month breakdown in payoff timeline
@@ -93,17 +70,6 @@ export interface ConsolidationResult {
 }
 
 // Form data types
-export interface RateBucketFormData {
-	name: string;
-	balance: number;
-	interestRate: number;
-	startDate: Date;
-	expiresDate?: Date | null;
-	isRetroactive: boolean;
-	retroactiveRate?: number | null;
-	category: 'purchase' | 'balance-transfer' | 'cash-advance' | 'other';
-}
-
 export interface DebtFormData {
 	name: string;
 	originalBalance: number;
@@ -112,7 +78,6 @@ export interface DebtFormData {
 	minimumPayment: number;
 	linkedBillId?: number | null;
 	priority?: number;
-	paymentAllocationStrategy?: PaymentAllocationStrategy;
 	notes?: string;
 }
 
@@ -149,4 +114,4 @@ export interface DebtSummary {
 }
 
 // Export database types
-export type { Debt, DebtPayment, DebtStrategySettings, DebtRateBucket };
+export type { Debt, DebtPayment, DebtStrategySettings };

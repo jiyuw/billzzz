@@ -7,22 +7,16 @@ import type {
 	PayoffCalculationInput,
 	StrategyComparison,
 	ConsolidationInput,
-	ConsolidationResult,
-	DebtWithDetails
+	ConsolidationResult
 } from '$lib/types/debt';
-import {
-	hasRateBuckets,
-	initializeWorkingBuckets,
-	allocatePayment,
-	type WorkingBucket
-} from './rate-bucket-calculator';
 
 /**
  * Calculate monthly interest for a debt
+ * Matches Excel formula: ROUNDUP(Balance * Rate / 12, 2)
  */
 function calculateMonthlyInterest(balance: number, annualRate: number): number {
 	const monthlyRate = annualRate / 100 / 12;
-	return balance * monthlyRate;
+	return Math.round(balance * monthlyRate * 100) / 100;
 }
 
 /**
@@ -55,20 +49,17 @@ function sortByCustom(debts: Debt[], priorityOrder: number[]): Debt[] {
 
 /**
  * Calculate payoff schedule using debt avalanche or snowball method
- * Now supports rate buckets for debts with multiple promotional rates
+ * Simplified to match Excel's straightforward logic
  */
 export function calculatePayoffSchedule(
-	debts: (Debt | DebtWithDetails)[],
+	debts: Debt[],
 	extraPayment: number,
-	sortedDebts: (Debt | DebtWithDetails)[]
+	sortedDebts: Debt[]
 ): PayoffSchedule {
-	// Clone debts to avoid mutation and initialize working state
+	// Clone debts to avoid mutation
 	const workingDebts = sortedDebts.map((d) => ({
 		...d,
-		balance: d.currentBalance,
-		workingBuckets: hasRateBuckets((d as DebtWithDetails).rateBuckets)
-			? initializeWorkingBuckets((d as DebtWithDetails).rateBuckets!)
-			: null
+		balance: d.currentBalance
 	}));
 
 	const timeline: MonthlyPayoffDetail[] = [];
@@ -88,7 +79,7 @@ export function calculatePayoffSchedule(
 
 		let availablePayment = totalMonthlyPayment;
 
-		// First, pay minimums on all debts
+		// First pass: pay minimums on all debts and accrue interest
 		for (const debt of workingDebts) {
 			if (debt.balance <= 0) {
 				monthlyDebts.push({
@@ -102,41 +93,15 @@ export function calculatePayoffSchedule(
 				continue;
 			}
 
-			let interest: number;
-			let minimumPayment: number;
-			let principal: number;
-			let bucketBreakdown = undefined;
+			// Calculate interest for the month (matches Excel: balance * rate / 12)
+			const interest = calculateMonthlyInterest(debt.balance, debt.interestRate);
 
-			// Handle debts with rate buckets differently
-			if (debt.workingBuckets && debt.workingBuckets.length > 0) {
-				// Use rate bucket calculator
-				const strategy = (debt as any).paymentAllocationStrategy || 'highest-rate-first';
-				const result = allocatePayment(
-					debt.workingBuckets,
-					debt.minimumPayment,
-					strategy,
-					debt.interestRate, // Regular rate as fallback
-					monthDate
-				);
+			// Minimum payment can't exceed (balance + interest)
+			const minimumPayment = Math.min(debt.minimumPayment, debt.balance + interest);
+			const principal = Math.max(0, minimumPayment - interest);
 
-				debt.workingBuckets = result.buckets;
-				interest = result.totalInterest;
-				bucketBreakdown = result.breakdown;
-
-				// Calculate new total balance from buckets
-				debt.balance = result.buckets.reduce((sum, b) => sum + b.balance, 0);
-
-				// Minimum payment calculation
-				minimumPayment = Math.min(debt.minimumPayment, debt.balance + interest);
-				principal = Math.max(0, minimumPayment - interest);
-			} else {
-				// Standard single-rate calculation
-				interest = calculateMonthlyInterest(debt.balance, debt.interestRate);
-				minimumPayment = Math.min(debt.minimumPayment, debt.balance + interest);
-				principal = Math.max(0, minimumPayment - interest);
-				debt.balance = Math.max(0, debt.balance - principal);
-			}
-
+			// Apply minimum payment
+			debt.balance = Math.max(0, debt.balance - principal);
 			availablePayment -= minimumPayment;
 			totalInterestPaid += interest;
 
@@ -146,47 +111,19 @@ export function calculatePayoffSchedule(
 				payment: minimumPayment,
 				principal,
 				interest,
-				remainingBalance: debt.balance,
-				bucketBreakdown
+				remainingBalance: debt.balance
 			});
 		}
 
-		// Apply extra payment to highest priority debt with balance remaining
+		// Second pass: apply extra payment to highest priority debt with balance remaining
+		// This matches Excel's waterfall approach
 		for (let i = 0; i < workingDebts.length && availablePayment > 0.01; i++) {
 			const debt = workingDebts[i];
 			if (debt.balance > 0) {
 				const extraAmount = Math.min(availablePayment, debt.balance);
 
-				// Apply extra payment through rate bucket system if available
-				if (debt.workingBuckets && debt.workingBuckets.length > 0) {
-					const strategy = (debt as any).paymentAllocationStrategy || 'highest-rate-first';
-					const result = allocatePayment(
-						debt.workingBuckets,
-						extraAmount,
-						strategy,
-						debt.interestRate,
-						monthDate
-					);
-					debt.workingBuckets = result.buckets;
-					debt.balance = result.buckets.reduce((sum, b) => sum + b.balance, 0);
-
-					// Update bucket breakdown
-					const debtRecord = monthlyDebts[i];
-					if (debtRecord.bucketBreakdown && result.breakdown) {
-						// Merge the extra payment into bucket breakdown
-						for (let j = 0; j < result.breakdown.length; j++) {
-							if (debtRecord.bucketBreakdown[j]) {
-								debtRecord.bucketBreakdown[j].payment += result.breakdown[j].payment;
-								debtRecord.bucketBreakdown[j].principal += result.breakdown[j].principal;
-								debtRecord.bucketBreakdown[j].remainingBalance = result.breakdown[j].remainingBalance;
-							}
-						}
-					}
-				} else {
-					// Standard single-rate handling
-					debt.balance -= extraAmount;
-				}
-
+				// Apply extra payment to principal
+				debt.balance -= extraAmount;
 				availablePayment -= extraAmount;
 
 				// Update the monthly debt record
@@ -296,7 +233,6 @@ export function calculateConsolidation(
 		minimumPayment: newMinimumPayment,
 		linkedBillId: null,
 		priority: null,
-		paymentAllocationStrategy: null,
 		notes: 'Consolidated debt',
 		createdAt: new Date(),
 		updatedAt: new Date()

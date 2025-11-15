@@ -137,41 +137,6 @@
 													</div>
 												</div>
 
-												<!-- Rate Bucket Breakdown (if available) -->
-												{#if debt.bucketBreakdown && debt.bucketBreakdown.length > 0}
-													<div class="px-3 py-2 bg-purple-50 border-t border-purple-100">
-														<div class="text-xs font-semibold text-purple-800 mb-2">Rate Buckets:</div>
-														<div class="space-y-1">
-															{#each debt.bucketBreakdown as bucket}
-																{#if bucket.remainingBalance > 0 || bucket.payment > 0}
-																	<div class="flex justify-between items-center text-xs text-gray-700 py-1">
-																		<div class="flex items-center gap-2">
-																			<span class="font-medium">{bucket.bucketName}</span>
-																			<span class="px-1.5 py-0.5 bg-purple-200 text-purple-800 rounded text-xs">
-																				{bucket.interestRate.toFixed(2)}%
-																			</span>
-																			{#if bucket.isPromoExpired}
-																				<span class="px-1.5 py-0.5 bg-orange-200 text-orange-800 rounded text-xs">
-																					⚠️ Promo Expired
-																				</span>
-																			{/if}
-																		</div>
-																		<div class="flex gap-3">
-																			<span>Pmt: <strong>${bucket.payment.toFixed(2)}</strong></span>
-																			<span>Int: <strong class="text-red-600">${bucket.interest.toFixed(2)}</strong></span>
-																			{#if bucket.retroactiveInterest && bucket.retroactiveInterest > 0}
-																				<span class="text-orange-600">
-																					Retro: <strong>${bucket.retroactiveInterest.toFixed(2)}</strong>
-																				</span>
-																			{/if}
-																			<span>Bal: <strong>${bucket.remainingBalance.toFixed(2)}</strong></span>
-																		</div>
-																	</div>
-																{/if}
-															{/each}
-														</div>
-													</div>
-												{/if}
 											</div>
 										{/if}
 									{/each}

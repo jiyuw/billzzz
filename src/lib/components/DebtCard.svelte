@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { DebtWithDetails } from '$lib/types/debt';
-	import { calculateWeightedAverageRate } from '$lib/utils/rate-calculations';
 
 	interface Props {
 		debt: DebtWithDetails;
@@ -17,15 +16,7 @@
 			: 0
 	);
 
-	const hasRateBuckets = $derived(debt.rateBuckets && debt.rateBuckets.length > 0);
-
-	const effectiveRate = $derived(
-		hasRateBuckets && debt.rateBuckets
-			? calculateWeightedAverageRate(debt.rateBuckets)
-			: debt.interestRate
-	);
-
-	const monthlyInterest = $derived((debt.currentBalance * (effectiveRate / 100)) / 12);
+	const monthlyInterest = $derived((debt.currentBalance * (debt.interestRate / 100)) / 12);
 </script>
 
 <div class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -33,14 +24,6 @@
 		<div class="flex-1">
 			<div class="flex items-center gap-2">
 				<h3 class="text-lg font-semibold text-gray-900">{debt.name}</h3>
-				{#if hasRateBuckets}
-					<span
-						class="px-2 py-1 text-xs font-medium rounded-full bg-purple-100 text-purple-800"
-						title="This debt has multiple promotional rates"
-					>
-						{debt.rateBuckets?.length} Rates
-					</span>
-				{/if}
 			</div>
 			{#if debt.linkedBill}
 				<p class="text-sm text-gray-500 mt-1">
@@ -110,13 +93,8 @@
 		<!-- Financial Details -->
 		<div class="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200">
 			<div>
-				<p class="text-xs text-gray-500">
-					{hasRateBuckets ? 'Weighted Avg APR' : 'Interest Rate'}
-				</p>
-				<p class="text-sm font-semibold text-gray-900">{effectiveRate.toFixed(2)}%</p>
-				{#if hasRateBuckets}
-					<p class="text-xs text-gray-400 mt-0.5">Multiple rates</p>
-				{/if}
+				<p class="text-xs text-gray-500">Interest Rate</p>
+				<p class="text-sm font-semibold text-gray-900">{debt.interestRate.toFixed(2)}%</p>
 			</div>
 			<div>
 				<p class="text-xs text-gray-500">Min Payment</p>
@@ -125,9 +103,6 @@
 			<div>
 				<p class="text-xs text-gray-500">Monthly Interest</p>
 				<p class="text-sm font-semibold text-red-600">${monthlyInterest.toFixed(2)}</p>
-				{#if hasRateBuckets}
-					<p class="text-xs text-gray-400 mt-0.5">Estimated</p>
-				{/if}
 			</div>
 		</div>
 

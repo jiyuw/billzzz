@@ -96,8 +96,9 @@
 		<div class="mb-2 flex items-center justify-between gap-2">
 			<div class="flex items-center gap-2">
 				{#if bucket.icon && iconMap[bucket.icon]}
+					{@const IconComponent = iconMap[bucket.icon]}
 					<div class="text-blue-600">
-						<svelte:component this={iconMap[bucket.icon]} size={20} />
+						<IconComponent size={20} />
 					</div>
 				{/if}
 				<h3 class="text-lg font-semibold text-gray-900">{bucket.name}</h3>

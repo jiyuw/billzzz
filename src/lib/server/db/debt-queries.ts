@@ -1,6 +1,6 @@
 import { db } from './index';
-import { debts, debtPayments, debtStrategySettings, bills, debtRateBuckets } from './schema';
-import type { NewDebt, NewDebtPayment, NewDebtStrategySettings, NewDebtRateBucket } from './schema';
+import { debts, debtPayments, debtStrategySettings, bills } from './schema';
+import type { NewDebt, NewDebtPayment, NewDebtStrategySettings } from './schema';
 import type { DebtWithDetails, DebtSummary } from '$lib/types/debt';
 import { eq, desc, sql } from 'drizzle-orm';
 
@@ -24,16 +24,13 @@ export function getAllDebts(): DebtWithDetails[] {
 }
 
 /**
- * Get all debts with full details including payments and rate buckets
+ * Get all debts with full details including payments
  */
 export function getDebtsWithDetails(): DebtWithDetails[] {
 	const allDebts = getAllDebts();
 
 	// Get all payments
 	const allPayments = db.select().from(debtPayments).orderBy(desc(debtPayments.paymentDate)).all();
-
-	// Get all rate buckets
-	const allRateBuckets = db.select().from(debtRateBuckets).orderBy(debtRateBuckets.createdAt).all();
 
 	// Group payments by debt
 	const paymentsByDebt = allPayments.reduce(
@@ -47,29 +44,15 @@ export function getDebtsWithDetails(): DebtWithDetails[] {
 		{} as Record<number, typeof allPayments>
 	);
 
-	// Group rate buckets by debt
-	const bucketsByDebt = allRateBuckets.reduce(
-		(acc, bucket) => {
-			if (!acc[bucket.debtId]) {
-				acc[bucket.debtId] = [];
-			}
-			acc[bucket.debtId].push(bucket);
-			return acc;
-		},
-		{} as Record<number, typeof allRateBuckets>
-	);
-
-	// Attach payments, rate buckets, and calculate totals
+	// Attach payments and calculate totals
 	return allDebts.map((debt) => {
 		const payments = paymentsByDebt[debt.id] || [];
 		const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-		const rateBuckets = bucketsByDebt[debt.id] || [];
 
 		return {
 			...debt,
 			payments,
-			totalPaid,
-			rateBuckets
+			totalPaid
 		};
 	});
 }
@@ -97,21 +80,13 @@ export function getDebtById(id: number): DebtWithDetails | undefined {
 		.orderBy(desc(debtPayments.paymentDate))
 		.all();
 
-	const rateBuckets = db
-		.select()
-		.from(debtRateBuckets)
-		.where(eq(debtRateBuckets.debtId, id))
-		.orderBy(debtRateBuckets.createdAt)
-		.all();
-
 	const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
 	return {
 		...result.debt,
 		linkedBill: result.linkedBill,
 		payments,
-		totalPaid,
-		rateBuckets
+		totalPaid
 	};
 }
 
@@ -295,84 +270,4 @@ export function getDebtSummary(): DebtSummary {
 		totalPaid,
 		percentPaid
 	};
-}
-
-// ============================================================================
-// RATE BUCKET QUERIES
-// ============================================================================
-
-/**
- * Get all rate buckets for a specific debt
- */
-export function getRateBuckets(debtId: number) {
-	return db
-		.select()
-		.from(debtRateBuckets)
-		.where(eq(debtRateBuckets.debtId, debtId))
-		.orderBy(debtRateBuckets.createdAt)
-		.all();
-}
-
-/**
- * Get a single rate bucket by ID
- */
-export function getRateBucketById(id: number) {
-	return db
-		.select()
-		.from(debtRateBuckets)
-		.where(eq(debtRateBuckets.id, id))
-		.get();
-}
-
-/**
- * Create a new rate bucket
- */
-export function createRateBucket(data: NewDebtRateBucket) {
-	const result = db.insert(debtRateBuckets).values(data).returning().get();
-	return result;
-}
-
-/**
- * Update a rate bucket
- */
-export function updateRateBucket(id: number, data: Partial<NewDebtRateBucket>) {
-	const result = db
-		.update(debtRateBuckets)
-		.set({
-			...data,
-			updatedAt: new Date()
-		})
-		.where(eq(debtRateBuckets.id, id))
-		.returning()
-		.get();
-	return result;
-}
-
-/**
- * Delete a rate bucket
- */
-export function deleteRateBucket(id: number) {
-	db.delete(debtRateBuckets).where(eq(debtRateBuckets.id, id)).run();
-}
-
-/**
- * Validate that rate buckets don't exceed debt balance
- */
-export function validateRateBuckets(debtId: number): { valid: boolean; message?: string } {
-	const debt = db.select().from(debts).where(eq(debts.id, debtId)).get();
-	if (!debt) {
-		return { valid: false, message: 'Debt not found' };
-	}
-
-	const buckets = getRateBuckets(debtId);
-	const totalBucketBalance = buckets.reduce((sum, b) => sum + b.balance, 0);
-
-	if (totalBucketBalance > debt.currentBalance) {
-		return {
-			valid: false,
-			message: `Total rate bucket balance ($${totalBucketBalance.toFixed(2)}) exceeds debt balance ($${debt.currentBalance.toFixed(2)})`
-		};
-	}
-
-	return { valid: true };
 }

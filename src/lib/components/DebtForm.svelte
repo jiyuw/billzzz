@@ -1,11 +1,8 @@
 <script lang="ts">
 	import type { Bill } from '$lib/types/bill';
-	import type { PaymentAllocationStrategy } from '$lib/types/debt';
-	import RateBucketManager from './RateBucketManager.svelte';
 
 	interface Props {
 		bills?: Bill[];
-		debtId?: number; // For editing existing debts with rate buckets
 		initialData?: {
 			name?: string;
 			originalBalance?: number;
@@ -14,24 +11,18 @@
 			minimumPayment?: number;
 			linkedBillId?: number | null;
 			priority?: number | null;
-			paymentAllocationStrategy?: PaymentAllocationStrategy;
 			notes?: string;
 		};
-		rateBuckets?: any[]; // Rate buckets for existing debt
 		onSubmit: (data: any) => Promise<void>;
 		onCancel: () => void;
-		onRateBucketsUpdate?: () => void; // Callback when rate buckets change
 		submitLabel?: string;
 	}
 
 	let {
 		bills = [],
-		debtId,
 		initialData,
-		rateBuckets = [],
 		onSubmit,
 		onCancel,
-		onRateBucketsUpdate,
 		submitLabel = 'Save Debt'
 	}: Props = $props();
 
@@ -42,10 +33,8 @@
 	let minimumPayment = $state(0);
 	let linkedBillId = $state<number | null>(null);
 	let priority = $state<number | null>(null);
-	let paymentAllocationStrategy = $state<PaymentAllocationStrategy>('highest-rate-first');
 	let notes = $state('');
 	let isSubmitting = $state(false);
-	let showRateBuckets = $state(false);
 
 	// Reset form when initialData changes
 	$effect(() => {
@@ -56,7 +45,6 @@
 		minimumPayment = initialData?.minimumPayment || 0;
 		linkedBillId = initialData?.linkedBillId || null;
 		priority = initialData?.priority || null;
-		paymentAllocationStrategy = initialData?.paymentAllocationStrategy || 'highest-rate-first';
 		notes = initialData?.notes || '';
 	});
 
@@ -73,7 +61,6 @@
 				minimumPayment: parseFloat(minimumPayment.toString()),
 				linkedBillId,
 				priority,
-				paymentAllocationStrategy,
 				notes: notes.trim() || null
 			});
 		} finally {
@@ -216,54 +203,6 @@
 		/>
 		<p class="mt-1 text-xs text-gray-500">Lower numbers = higher priority in custom strategy</p>
 	</div>
-
-	<div>
-		<label for="paymentAllocationStrategy" class="block text-sm font-medium text-gray-700">
-			Payment Allocation Strategy
-		</label>
-		<select
-			id="paymentAllocationStrategy"
-			bind:value={paymentAllocationStrategy}
-			class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-		>
-			<option value="highest-rate-first">Highest Rate First (Recommended)</option>
-			<option value="lowest-rate-first">Lowest Rate First</option>
-			<option value="oldest-first">Oldest Balance First</option>
-		</select>
-		<p class="mt-1 text-xs text-gray-500">
-			How to allocate payments across rate buckets (if using multiple promotional rates)
-		</p>
-	</div>
-
-	<!-- Rate Buckets Section (only show for existing debts) -->
-	{#if debtId}
-		<div class="border-t border-gray-200 pt-6">
-			<div class="flex items-center justify-between mb-4">
-				<div>
-					<h3 class="text-lg font-medium text-gray-900">Multiple Promotional Rates</h3>
-					<p class="text-sm text-gray-500">
-						Configure different interest rates for different balance portions (e.g., balance transfers, purchases)
-					</p>
-				</div>
-				<button
-					type="button"
-					onclick={() => (showRateBuckets = !showRateBuckets)}
-					class="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50"
-				>
-					{showRateBuckets ? 'Hide' : 'Show'} Rate Buckets
-				</button>
-			</div>
-
-			{#if showRateBuckets}
-				<RateBucketManager
-					{debtId}
-					debtBalance={currentBalance}
-					{rateBuckets}
-					onUpdate={() => onRateBucketsUpdate?.()}
-				/>
-			{/if}
-		</div>
-	{/if}
 
 	<div>
 		<label for="notes" class="block text-sm font-medium text-gray-700">Notes (Optional)</label>

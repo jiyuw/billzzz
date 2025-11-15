@@ -69,37 +69,11 @@ export const debts = sqliteTable('debts', {
 	name: text('name').notNull(),
 	originalBalance: real('original_balance').notNull(),
 	currentBalance: real('current_balance').notNull(),
-	interestRate: real('interest_rate').notNull(), // APR as percentage (e.g., 15.5 for 15.5%) - default/regular rate
+	interestRate: real('interest_rate').notNull(), // APR as percentage (e.g., 15.5 for 15.5%)
 	minimumPayment: real('minimum_payment').notNull(),
 	linkedBillId: integer('linked_bill_id').references(() => bills.id, { onDelete: 'set null' }),
 	priority: integer('priority'), // For custom ordering in hybrid strategy
-	paymentAllocationStrategy: text('payment_allocation_strategy', {
-		enum: ['lowest-rate-first', 'highest-rate-first', 'oldest-first']
-	}).default('highest-rate-first'), // How to allocate payments across rate buckets
 	notes: text('notes'),
-	createdAt: integer('created_at', { mode: 'timestamp' })
-		.notNull()
-		.default(sql`(unixepoch())`),
-	updatedAt: integer('updated_at', { mode: 'timestamp' })
-		.notNull()
-		.default(sql`(unixepoch())`)
-});
-
-export const debtRateBuckets = sqliteTable('debt_rate_buckets', {
-	id: integer('id').primaryKey({ autoIncrement: true }),
-	debtId: integer('debt_id')
-		.notNull()
-		.references(() => debts.id, { onDelete: 'cascade' }),
-	name: text('name').notNull(), // e.g., "Purchase 1", "Balance Transfer", "Promo Offer"
-	balance: real('balance').notNull(), // Portion of debt at this rate
-	interestRate: real('interest_rate').notNull(), // APR as percentage
-	startDate: integer('start_date', { mode: 'timestamp' }).notNull(),
-	expiresDate: integer('expires_date', { mode: 'timestamp' }), // null = never expires
-	isRetroactive: integer('is_retroactive', { mode: 'boolean' }).notNull().default(false), // Deferred interest penalty
-	retroactiveRate: real('retroactive_rate'), // Rate to apply retroactively if not paid off in time
-	category: text('category', {
-		enum: ['purchase', 'balance-transfer', 'cash-advance', 'other']
-	}).notNull().default('purchase'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(unixepoch())`),
@@ -224,9 +198,6 @@ export type NewBucketTransaction = typeof bucketTransactions.$inferInsert;
 
 export type Debt = typeof debts.$inferSelect;
 export type NewDebt = typeof debts.$inferInsert;
-
-export type DebtRateBucket = typeof debtRateBuckets.$inferSelect;
-export type NewDebtRateBucket = typeof debtRateBuckets.$inferInsert;
 
 export type DebtPayment = typeof debtPayments.$inferSelect;
 export type NewDebtPayment = typeof debtPayments.$inferInsert;
