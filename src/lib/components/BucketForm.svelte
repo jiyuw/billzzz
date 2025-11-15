@@ -46,6 +46,7 @@
 	let color = $state('#3b82f6');
 	let anchorDate = $state(format(new Date(), 'yyyy-MM-dd'));
 	let isSubmitting = $state(false);
+	let iconSearchQuery = $state('');
 
 	// Preset icon options
 	const iconOptions = [
@@ -62,6 +63,16 @@
 		{ id: 'dog', component: Dog, label: 'Pets' },
 		{ id: 'heart', component: Heart, label: 'Health' }
 	];
+
+	// Filter icons based on search query
+	const filteredIconOptions = $derived(
+		iconSearchQuery.trim() === ''
+			? iconOptions
+			: iconOptions.filter(option =>
+				option.label.toLowerCase().includes(iconSearchQuery.toLowerCase()) ||
+				option.id.toLowerCase().includes(iconSearchQuery.toLowerCase())
+			)
+	);
 
 	// Reset form when initialData changes
 	$effect(() => {
@@ -117,8 +128,15 @@
 	<!-- Icon Selection -->
 	<div>
 		<div class="block text-sm font-medium text-gray-700 mb-2">Icon (Optional)</div>
+		<input
+			type="text"
+			bind:value={iconSearchQuery}
+			placeholder="Search icons..."
+			class="mb-3 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+		/>
 		<div class="grid grid-cols-6 gap-2">
-			{#each iconOptions as option}
+			{#each filteredIconOptions as option}
+				{@const IconComponent = option.component}
 				<button
 					type="button"
 					onclick={() => (icon = option.id)}
@@ -127,10 +145,13 @@
 						: 'border-gray-200 hover:border-gray-300 text-gray-600'}"
 					title={option.label}
 				>
-					<svelte:component this={option.component} size={24} />
+					<IconComponent size={24} />
 				</button>
 			{/each}
 		</div>
+		{#if filteredIconOptions.length === 0}
+			<p class="mt-2 text-sm text-gray-500 text-center">No icons found</p>
+		{/if}
 		{#if icon}
 			<button
 				type="button"
