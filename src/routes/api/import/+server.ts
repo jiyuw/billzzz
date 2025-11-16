@@ -20,7 +20,6 @@ interface ImportData {
 	data: {
 		categories: any[];
 		bills: any[];
-		paymentHistory: any[];
 		buckets: any[];
 		bucketCycles: any[];
 		bucketTransactions: any[];
@@ -28,6 +27,8 @@ interface ImportData {
 		debtPayments: any[];
 		debtStrategySettings: any[];
 		paydaySettings: any[];
+		// paymentHistory is intentionally excluded from backups
+		paymentHistory?: any[];
 	};
 }
 
@@ -78,7 +79,6 @@ export const POST: RequestHandler = async ({ request }) => {
 		let importedCounts = {
 			categories: 0,
 			bills: 0,
-			paymentHistory: 0,
 			buckets: 0,
 			bucketCycles: 0,
 			bucketTransactions: 0,
@@ -104,10 +104,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			importedCounts.bills = importData.data.bills.length;
 		}
 
-		if (importData.data.paymentHistory?.length > 0) {
-			db.insert(paymentHistory).values(importData.data.paymentHistory).run();
-			importedCounts.paymentHistory = importData.data.paymentHistory.length;
-		}
+		// Payment history is intentionally not imported from backups
 
 		if (importData.data.buckets?.length > 0) {
 			db.insert(buckets).values(importData.data.buckets).run();

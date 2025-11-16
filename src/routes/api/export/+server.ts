@@ -10,20 +10,18 @@ import {
 	debts,
 	debtPayments,
 	debtStrategySettings,
-	paydaySettings,
-	paymentHistory
+	paydaySettings
 } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async () => {
 	try {
-		// Export all data
+		// Export all data (excluding payment history)
 		const exportData = {
 			version: '1.0',
 			exportDate: new Date().toISOString(),
 			data: {
 				categories: db.select().from(categories).all(),
 				bills: db.select().from(bills).all(),
-				paymentHistory: db.select().from(paymentHistory).all(),
 				buckets: db.select().from(buckets).all(),
 				bucketCycles: db.select().from(bucketCycles).all(),
 				bucketTransactions: db.select().from(bucketTransactions).all(),
