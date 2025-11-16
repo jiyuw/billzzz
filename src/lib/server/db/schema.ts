@@ -235,6 +235,9 @@ export const importedTransactions = sqliteTable('imported_transactions', {
 	checkNumber: text('check_number'),
 	// Mapping fields
 	mappedBillId: integer('mapped_bill_id').references(() => bills.id, { onDelete: 'set null' }),
+	mappedBucketId: integer('mapped_bucket_id').references(() => buckets.id, {
+		onDelete: 'set null'
+	}),
 	createNewBill: integer('create_new_bill', { mode: 'boolean' }).default(false),
 	suggestedCategoryId: integer('suggested_category_id').references(() => categories.id, {
 		onDelete: 'set null'
