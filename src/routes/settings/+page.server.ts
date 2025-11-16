@@ -12,7 +12,9 @@ import {
 	debtPayments,
 	debtStrategySettings,
 	paydaySettings,
-	paymentHistory
+	paymentHistory,
+	importSessions,
+	importedTransactions
 } from '$lib/server/db/schema';
 
 interface ImportData {
@@ -197,6 +199,44 @@ export const actions: Actions = {
 			console.error('Import error:', error);
 			return fail(500, {
 				error: `Failed to import data: ${error instanceof Error ? error.message : 'Unknown error'}`
+			});
+		}
+	},
+
+	resetData: async ({ request }) => {
+		try {
+			const formData = await request.formData();
+			const confirmation = formData.get('confirmation');
+
+			// Require explicit confirmation
+			if (confirmation !== 'DELETE ALL DATA') {
+				return fail(400, { error: 'Invalid confirmation. Please type "DELETE ALL DATA" exactly.' });
+			}
+
+			// Delete all data (in reverse order due to foreign key constraints)
+			db.delete(importedTransactions).run();
+			db.delete(importSessions).run();
+			db.delete(bucketTransactions).run();
+			db.delete(bucketCycles).run();
+			db.delete(buckets).run();
+			db.delete(paymentHistory).run();
+			db.delete(bills).run();
+			db.delete(debtPayments).run();
+			db.delete(debts).run();
+			db.delete(debtStrategySettings).run();
+			db.delete(paydaySettings).run();
+			db.delete(categories).run();
+
+			console.log('All data has been reset');
+
+			return {
+				success: true,
+				message: 'All data has been deleted successfully'
+			};
+		} catch (error) {
+			console.error('Reset error:', error);
+			return fail(500, {
+				error: `Failed to reset data: ${error instanceof Error ? error.message : 'Unknown error'}`
 			});
 		}
 	}
