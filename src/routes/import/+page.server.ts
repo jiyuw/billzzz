@@ -14,7 +14,7 @@ import {
 	markTransactionsAsProcessed,
 	checkDuplicateFitId
 } from '$lib/server/db/queries';
-import { getAllBucketsWithCurrentCycle, createTransaction, createBucket } from '$lib/server/db/bucket-queries';
+import { getAllBucketsWithCurrentCycle, getAllBuckets, createTransaction, createBucket } from '$lib/server/db/bucket-queries';
 import { parseLocalDate } from '$lib/utils/dates';
 
 export const load: PageServerLoad = async ({ url }) => {
@@ -164,6 +164,20 @@ export const actions: Actions = {
 			// Get all transaction details for bucket mapping
 			const sessionTransactions = getImportedTransactionsBySession(sessionId);
 
+			// Create a cache of bucket names to bucket IDs for deduplication
+			// This includes both existing buckets and buckets created during this import session
+			const existingBuckets = await getAllBuckets();
+			const bucketNameMap = new Map<string, number>(
+				existingBuckets.map(b => [b.name.toLowerCase().trim(), b.id])
+			);
+
+			// Create a cache of bill names to bill IDs for deduplication
+			// This includes both existing bills and bills created during this import session
+			const existingBills = getAllBills();
+			const billNameMap = new Map<string, number>(
+				existingBills.map(b => [b.name.toLowerCase().trim(), b.id])
+			);
+
 			for (const mapping of mappings) {
 				const {
 					transactionId,
@@ -190,27 +204,42 @@ export const actions: Actions = {
 					});
 					importedCount++;
 				} else if (action === 'create_new' && transactionData) {
-					// Create new bill
-					const newBill = createBill({
-						name: billName,
-						amount,
-						dueDate: parseLocalDate(dueDate),
-						categoryId: categoryId || null,
-						isRecurring: isRecurring || false,
-						recurrenceType: recurrenceType || null,
-						recurrenceDay: null,
-						isPaid: false,
-						isAutopay: false,
-						notes: null,
-						paymentLink: null
-					});
+					// Create new bill with deduplication
+					const normalizedBillName = billName.toLowerCase().trim();
+					let billIdToUse: number;
+					let wasNewlyCreated = false;
 
-					// Add payment history for the imported transaction
-					addPaymentHistory(newBill.id, amount, transactionData.transaction.datePosted, 'Payment recorded from import');
+					if (billNameMap.has(normalizedBillName)) {
+						// Reuse existing bill
+						billIdToUse = billNameMap.get(normalizedBillName)!;
+					} else {
+						// Create new bill
+						const newBill = createBill({
+							name: billName,
+							amount,
+							dueDate: parseLocalDate(dueDate),
+							categoryId: categoryId || null,
+							isRecurring: isRecurring || false,
+							recurrenceType: recurrenceType || null,
+							recurrenceDay: null,
+							isPaid: false,
+							isAutopay: false,
+							notes: null,
+							paymentLink: null
+						});
+						billIdToUse = newBill.id;
+						wasNewlyCreated = true;
+
+						// Add to cache for subsequent transactions in this import session
+						billNameMap.set(normalizedBillName, newBill.id);
+					}
+
+					// Add payment history for the imported transaction (existing or newly created bill)
+					addPaymentHistory(billIdToUse, amount, transactionData.transaction.datePosted, 'Payment recorded from import');
 
 					updateImportedTransaction(transactionId, {
-						mappedBillId: newBill.id,
-						createNewBill: true,
+						mappedBillId: billIdToUse,
+						createNewBill: wasNewlyCreated,
 						isProcessed: true
 					});
 					importedCount++;
@@ -233,19 +262,33 @@ export const actions: Actions = {
 					// Create new bucket from imported transaction
 					const { bucketName, budgetAmount, frequency, anchorDate } = mapping;
 
-					const newBucket = await createBucket({
-						name: bucketName,
-						frequency: frequency || 'monthly',
-						budgetAmount: budgetAmount || amount,
-						anchorDate: anchorDate ? parseLocalDate(anchorDate) : transactionData.transaction.datePosted,
-						enableCarryover: true,
-						icon: 'shopping-cart',
-						color: null
-					});
+					// Check if a bucket with this name already exists (case-insensitive)
+					const normalizedBucketName = bucketName.toLowerCase().trim();
+					let bucketIdToUse: number;
 
-					// Create transaction in the new bucket
+					if (bucketNameMap.has(normalizedBucketName)) {
+						// Reuse existing bucket
+						bucketIdToUse = bucketNameMap.get(normalizedBucketName)!;
+					} else {
+						// Create new bucket
+						const newBucket = await createBucket({
+							name: bucketName,
+							frequency: frequency || 'monthly',
+							budgetAmount: budgetAmount || amount,
+							anchorDate: anchorDate ? parseLocalDate(anchorDate) : transactionData.transaction.datePosted,
+							enableCarryover: true,
+							icon: 'shopping-cart',
+							color: null
+						});
+						bucketIdToUse = newBucket.id;
+
+						// Add to cache for subsequent transactions in this import session
+						bucketNameMap.set(normalizedBucketName, newBucket.id);
+					}
+
+					// Create transaction in the bucket (existing or newly created)
 					await createTransaction({
-						bucketId: newBucket.id,
+						bucketId: bucketIdToUse,
 						amount,
 						timestamp: transactionData.transaction.datePosted,
 						vendor: transactionData.transaction.payee,
@@ -253,7 +296,7 @@ export const actions: Actions = {
 					});
 
 					updateImportedTransaction(transactionId, {
-						mappedBucketId: newBucket.id,
+						mappedBucketId: bucketIdToUse,
 						createNewBill: false,
 						isProcessed: true
 					});
