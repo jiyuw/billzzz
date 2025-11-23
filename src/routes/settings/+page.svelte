@@ -10,6 +10,7 @@
 	import PaymentHistorySection from '$lib/components/settings/PaymentHistorySection.svelte';
 	import CategoriesSection from '$lib/components/settings/CategoriesSection.svelte';
 	import CategoryFormModal from '$lib/components/settings/CategoryFormModal.svelte';
+	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import {
 		ShoppingCart,
 		Fuel,
@@ -232,8 +233,13 @@
 <div class="py-8">
 	<div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 		<div class="mb-8">
-			<h1 class="text-3xl font-bold text-gray-900">Settings</h1>
-			<p class="mt-2 text-gray-600">Manage your payday schedule, categories, and payment history</p>
+			<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+			<p class="mt-2 text-gray-600 dark:text-gray-400">Manage your payday schedule, categories, and payment history</p>
+		</div>
+
+		<div class="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+			<h2 class="mb-4 text-xl font-semibold text-gray-900 dark:text-gray-100">Appearance</h2>
+			<ThemeSelector />
 		</div>
 
 		<PaydaySettingsSection
