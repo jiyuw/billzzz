@@ -14,7 +14,8 @@ import {
 	paydaySettings,
 	paymentHistory,
 	importSessions,
-	importedTransactions
+	importedTransactions,
+	userPreferences
 } from '$lib/server/db/schema';
 
 interface ImportData {
@@ -226,6 +227,7 @@ export const actions: Actions = {
 			db.delete(debtStrategySettings).run();
 			db.delete(paydaySettings).run();
 			db.delete(categories).run();
+			db.delete(userPreferences).run();
 
 			// Clean up any orphaned debt_rate_buckets table data (legacy table)
 			try {

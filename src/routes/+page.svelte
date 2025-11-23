@@ -4,6 +4,7 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import BillForm from '$lib/components/BillForm.svelte';
 	import PaymentModal from '$lib/components/PaymentModal.svelte';
+	import Button from '$lib/components/Button.svelte';
 	import type { BillWithCategory } from '$lib/types/bill';
 	import { invalidateAll } from '$app/navigation';
 	import { format } from 'date-fns';
@@ -225,32 +226,32 @@
 <div class="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
 	<div class="mb-8">
 		<div>
-			<h1 class="text-3xl font-bold text-gray-900">Bills Dashboard</h1>
-			<p class="mt-2 text-gray-600 italic">I got bills, they're multiplying</p>
+			<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">Bills Dashboard</h1>
+			<p class="mt-2 text-gray-600 dark:text-gray-400 italic">I got bills, they're multiplying</p>
 		</div>
 	</div>
 
 		<!-- Stats Dashboard -->
 		<div class="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<p class="text-sm text-gray-500">Total Bills</p>
-				<p class="mt-1 text-2xl font-semibold text-gray-900">{data.stats.totalBills}</p>
+			<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+				<p class="text-sm text-gray-500 dark:text-gray-400">Total Bills</p>
+				<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.stats.totalBills}</p>
 			</div>
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<p class="text-sm text-gray-500">Unpaid</p>
-				<p class="mt-1 text-2xl font-semibold text-gray-900">{data.stats.unpaidBills}</p>
+			<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+				<p class="text-sm text-gray-500 dark:text-gray-400">Unpaid</p>
+				<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.stats.unpaidBills}</p>
 			</div>
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<p class="text-sm text-gray-500">Overdue</p>
-				<p class="mt-1 text-2xl font-semibold text-red-600">{data.stats.overdueBills}</p>
+			<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+				<p class="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
+				<p class="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">{data.stats.overdueBills}</p>
 			</div>
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<p class="text-sm text-gray-500">Upcoming</p>
-				<p class="mt-1 text-2xl font-semibold text-yellow-600">{data.stats.upcomingBills}</p>
+			<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+				<p class="text-sm text-gray-500 dark:text-gray-400">Upcoming</p>
+				<p class="mt-1 text-2xl font-semibold text-yellow-600 dark:text-yellow-400">{data.stats.upcomingBills}</p>
 			</div>
-			<div class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-				<p class="text-sm text-gray-500">Due Next 30 Days</p>
-				<p class="mt-1 text-2xl font-semibold text-gray-900">
+			<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
+				<p class="text-sm text-gray-500 dark:text-gray-400">Due Next 30 Days</p>
+				<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
 					${data.stats.totalAmount.toFixed(2)}
 				</p>
 			</div>
@@ -258,28 +259,28 @@
 
 		<!-- Payday Info (if configured) -->
 		{#if data.stats.hasPaydayConfigured && data.stats.nextPayday}
-			<div class="mb-6 rounded-lg border-2 border-blue-200 bg-blue-50 p-6 shadow-sm">
+			<div class="mb-6 rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-6 shadow-sm">
 				<div class="flex items-start justify-between">
 					<div class="flex-1">
-						<h3 class="text-lg font-semibold text-blue-900">Next Payday: {format(data.stats.nextPayday, 'MMM d, yyyy')}</h3>
+						<h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100">Next Payday: {format(data.stats.nextPayday, 'MMM d, yyyy')}</h3>
 						<div class="mt-4 grid gap-4 sm:grid-cols-2">
 							<div>
-								<p class="text-sm text-blue-700">Due Before Next Payday</p>
+								<p class="text-sm text-blue-700 dark:text-blue-300">Due Before Next Payday</p>
 								<div class="mt-1 flex items-baseline gap-2">
-									<p class="text-3xl font-bold text-blue-900">
+									<p class="text-3xl font-bold text-blue-900 dark:text-blue-100">
 										${data.stats.amountDueBeforeNextPayday.toFixed(2)}
 									</p>
-									<p class="text-sm text-blue-600">({data.stats.dueBeforeNextPayday} bills)</p>
+									<p class="text-sm text-blue-600 dark:text-blue-400">({data.stats.dueBeforeNextPayday} bills)</p>
 								</div>
 							</div>
 							{#if data.stats.followingPayday}
 								<div>
-									<p class="text-sm text-blue-700">Due Before Following Payday ({format(data.stats.followingPayday, 'MMM d')})</p>
+									<p class="text-sm text-blue-700 dark:text-blue-300">Due Before Following Payday ({format(data.stats.followingPayday, 'MMM d')})</p>
 									<div class="mt-1 flex items-baseline gap-2">
-										<p class="text-3xl font-bold text-blue-900">
+										<p class="text-3xl font-bold text-blue-900 dark:text-blue-100">
 											${data.stats.amountDueBeforeFollowingPayday.toFixed(2)}
 										</p>
-										<p class="text-sm text-blue-600">({data.stats.dueBeforeFollowingPayday} bills)</p>
+										<p class="text-sm text-blue-600 dark:text-blue-400">({data.stats.dueBeforeFollowingPayday} bills)</p>
 									</div>
 								</div>
 							{/if}
@@ -290,13 +291,13 @@
 		{/if}
 
 		<!-- Filters and Actions -->
-		<div class="mb-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+		<div class="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<div class="flex flex-wrap items-center gap-3">
 					<!-- Status Filter -->
 					<select
 						bind:value={filterStatus}
-						class="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
 					>
 						<option value="all">All Bills</option>
 						<option value="unpaid">Unpaid</option>
@@ -308,7 +309,7 @@
 					<!-- Category Filter -->
 					<select
 						bind:value={filterCategory}
-						class="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
 					>
 						<option value={null}>All Categories</option>
 						<option value="uncategorized">Uncategorized</option>
@@ -322,22 +323,23 @@
 						type="text"
 						bind:value={searchQuery}
 						placeholder="Search bills..."
-						class="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 text-sm focus:border-blue-500 focus:ring-blue-500"
 					/>
 
 					<!-- Sort -->
 					<select
 						bind:value={sortField}
-						class="rounded-md border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
 					>
 						<option value="dueDate">Sort by Due Date</option>
 						<option value="amount">Sort by Amount</option>
 						<option value="name">Sort by Name</option>
 					</select>
 
-					<button
+					<Button
+						variant="secondary"
+						size="sm"
 						onclick={() => (sortDirection = sortDirection === 'asc' ? 'desc' : 'asc')}
-						class="rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
 						title={sortDirection === 'asc' ? 'Ascending' : 'Descending'}
 					>
 						{#if sortDirection === 'asc'}
@@ -359,22 +361,16 @@
 								/>
 							</svg>
 						{/if}
-					</button>
+					</Button>
 
 					{#if filterStatus !== 'all' || filterCategory !== null || searchQuery}
-						<button
-							onclick={resetFilters}
-							class="text-sm text-blue-600 hover:text-blue-700"
-						>
+						<Button variant="ghost" size="sm" onclick={resetFilters}>
 							Reset filters
-						</button>
+						</Button>
 					{/if}
 				</div>
 
-				<button
-					onclick={() => (showAddModal = true)}
-					class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-				>
+				<Button variant="primary" size="md" onclick={() => (showAddModal = true)}>
 					<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path
 							stroke-linecap="round"
@@ -384,15 +380,15 @@
 						/>
 					</svg>
 					Add Bill
-				</button>
+				</Button>
 			</div>
 		</div>
 
 		<!-- Bills List -->
 		{#if filteredBills.length === 0}
-			<div class="rounded-lg border-2 border-dashed border-gray-300 bg-white p-12 text-center">
+			<div class="rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-12 text-center">
 				<svg
-					class="mx-auto h-12 w-12 text-gray-400"
+					class="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
@@ -404,13 +400,10 @@
 						d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
 					/>
 				</svg>
-				<h3 class="mt-2 text-sm font-semibold text-gray-900">No bills found</h3>
-				<p class="mt-1 text-sm text-gray-500">Get started by adding your first bill.</p>
+				<h3 class="mt-2 text-sm font-semibold text-gray-900 dark:text-gray-100">No bills found</h3>
+				<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by adding your first bill.</p>
 				<div class="mt-6">
-					<button
-						onclick={() => (showAddModal = true)}
-						class="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-					>
+					<Button variant="primary" size="md" onclick={() => (showAddModal = true)}>
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path
 								stroke-linecap="round"
@@ -420,7 +413,7 @@
 							/>
 						</svg>
 						Add Bill
-					</button>
+					</Button>
 				</div>
 			</div>
 		{:else}
@@ -430,7 +423,7 @@
 				{/each}
 			</div>
 
-		<div class="mt-6 text-center text-sm text-gray-500">
+		<div class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
 			Showing {filteredBills.length} of {data.bills.length} bills
 		</div>
 	{/if}

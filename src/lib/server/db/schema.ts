@@ -256,3 +256,20 @@ export type NewImportSession = typeof importSessions.$inferInsert;
 
 export type ImportedTransaction = typeof importedTransactions.$inferSelect;
 export type NewImportedTransaction = typeof importedTransactions.$inferInsert;
+
+// User preferences - stores app settings like theme preference
+export const userPreferences = sqliteTable('user_preferences', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	themePreference: text('theme_preference', { enum: ['light', 'dark', 'system'] })
+		.notNull()
+		.default('system'),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updatedAt: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`)
+});
+
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type NewUserPreferences = typeof userPreferences.$inferInsert;
