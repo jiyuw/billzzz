@@ -4,6 +4,7 @@
 	import BillMappingForm from './BillMappingForm.svelte';
 	import BucketMappingForm from './BucketMappingForm.svelte';
 	import type { Category, BillWithCategory } from '$lib/types/bill';
+	import { formatDateForInput } from '$lib/utils/dates';
 
 	type MappingAction = 'map_existing' | 'create_new' | 'map_to_bucket' | 'create_new_bucket' | 'skip';
 
@@ -69,7 +70,7 @@
 				bucketName: transaction.payee,
 				budgetAmount: transaction.amount,
 				frequency: 'monthly',
-				anchorDate: new Date(transaction.datePosted).toISOString().split('T')[0]
+				anchorDate: formatDateForInput(new Date(transaction.datePosted))
 			};
 		} else {
 			mapping = { ...mapping, action };

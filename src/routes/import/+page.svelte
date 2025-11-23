@@ -4,6 +4,7 @@
 	import OFXUploadForm from '$lib/components/import/OFXUploadForm.svelte';
 	import TransactionCard from '$lib/components/import/TransactionCard.svelte';
 	import { enhance } from '$app/forms';
+	import { formatDateForInput } from '$lib/utils/dates';
 	import {
 		ShoppingCart,
 		Fuel,
@@ -69,7 +70,7 @@
 				action: 'skip' as const,
 				amount: t.transaction.amount,
 				billName: t.transaction.payee,
-				dueDate: new Date(t.transaction.datePosted).toISOString().split('T')[0]
+				dueDate: formatDateForInput(new Date(t.transaction.datePosted))
 			}));
 		}
 	});
@@ -158,15 +159,17 @@
 
 						<div class="space-y-4">
 							{#each data.transactions as { transaction }, index}
-								<TransactionCard
-									{transaction}
-									{index}
-									bind:mapping={transactionMappings[index]}
-									existingBills={data.existingBills}
-									buckets={data.buckets}
-									categories={data.categories}
-									{iconMap}
-								/>
+								{#if transactionMappings[index]}
+									<TransactionCard
+										{transaction}
+										{index}
+										bind:mapping={transactionMappings[index]}
+										existingBills={data.existingBills}
+										buckets={data.buckets}
+										categories={data.categories}
+										{iconMap}
+									/>
+								{/if}
 							{/each}
 						</div>
 

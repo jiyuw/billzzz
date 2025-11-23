@@ -15,6 +15,7 @@ import {
 	checkDuplicateFitId
 } from '$lib/server/db/queries';
 import { getAllBucketsWithCurrentCycle, createTransaction, createBucket } from '$lib/server/db/bucket-queries';
+import { parseLocalDate } from '$lib/utils/dates';
 
 export const load: PageServerLoad = async ({ url }) => {
 	const sessionId = url.searchParams.get('session');
@@ -193,7 +194,7 @@ export const actions: Actions = {
 					const newBill = createBill({
 						name: billName,
 						amount,
-						dueDate: new Date(dueDate),
+						dueDate: parseLocalDate(dueDate),
 						categoryId: categoryId || null,
 						isRecurring: isRecurring || false,
 						recurrenceType: recurrenceType || null,
@@ -236,7 +237,7 @@ export const actions: Actions = {
 						name: bucketName,
 						frequency: frequency || 'monthly',
 						budgetAmount: budgetAmount || amount,
-						anchorDate: new Date(anchorDate || transactionData.transaction.datePosted),
+						anchorDate: anchorDate ? parseLocalDate(anchorDate) : transactionData.transaction.datePosted,
 						enableCarryover: true,
 						icon: 'shopping-cart',
 						color: null
