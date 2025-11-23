@@ -121,6 +121,83 @@ function initializeDatabase() {
 		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
 		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 	);
+
+	CREATE TABLE IF NOT EXISTS buckets (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		frequency TEXT NOT NULL CHECK(frequency IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
+		budget_amount REAL NOT NULL,
+		enable_carryover INTEGER NOT NULL DEFAULT 1,
+		icon TEXT,
+		color TEXT,
+		anchor_date INTEGER NOT NULL,
+		is_deleted INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
+
+	CREATE TABLE IF NOT EXISTS bucket_cycles (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		bucket_id INTEGER NOT NULL REFERENCES buckets(id) ON DELETE CASCADE,
+		start_date INTEGER NOT NULL,
+		end_date INTEGER NOT NULL,
+		budget_amount REAL NOT NULL,
+		carryover_amount REAL NOT NULL DEFAULT 0,
+		total_spent REAL NOT NULL DEFAULT 0,
+		is_closed INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
+
+	CREATE TABLE IF NOT EXISTS bucket_transactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		bucket_id INTEGER NOT NULL REFERENCES buckets(id) ON DELETE CASCADE,
+		cycle_id INTEGER NOT NULL REFERENCES bucket_cycles(id) ON DELETE CASCADE,
+		amount REAL NOT NULL,
+		timestamp INTEGER NOT NULL,
+		vendor TEXT,
+		notes TEXT,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
+
+	CREATE TABLE IF NOT EXISTS import_sessions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		file_name TEXT NOT NULL,
+		file_type TEXT NOT NULL CHECK(file_type IN ('ofx', 'qfx')),
+		transaction_count INTEGER NOT NULL,
+		imported_count INTEGER NOT NULL DEFAULT 0,
+		skipped_count INTEGER NOT NULL DEFAULT 0,
+		status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'completed', 'failed')),
+		created_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
+
+	CREATE TABLE IF NOT EXISTS imported_transactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		session_id INTEGER NOT NULL REFERENCES import_sessions(id) ON DELETE CASCADE,
+		fit_id TEXT NOT NULL,
+		transaction_type TEXT NOT NULL,
+		date_posted INTEGER NOT NULL,
+		amount REAL NOT NULL,
+		payee TEXT NOT NULL,
+		memo TEXT,
+		check_number TEXT,
+		mapped_bill_id INTEGER REFERENCES bills(id) ON DELETE SET NULL,
+		mapped_bucket_id INTEGER REFERENCES buckets(id) ON DELETE SET NULL,
+		create_new_bill INTEGER DEFAULT 0,
+		suggested_category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+		is_recurring_candidate INTEGER DEFAULT 0,
+		recurrence_pattern TEXT,
+		is_processed INTEGER NOT NULL DEFAULT 0,
+		created_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
+
+	CREATE TABLE IF NOT EXISTS user_preferences (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		theme_preference TEXT NOT NULL DEFAULT 'system' CHECK(theme_preference IN ('light', 'dark', 'system')),
+		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+	);
 	`);
 
 	// Run migrations for existing databases
