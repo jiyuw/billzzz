@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAllBucketsWithCurrentCycle, createBucket } from '$lib/server/db/bucket-queries';
+import { parseLocalDate } from '$lib/utils/dates';
 
 export const GET: RequestHandler = async () => {
 	try {
@@ -22,7 +23,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Convert date string to Date object
-		const anchorDate = data.anchorDate ? new Date(data.anchorDate) : new Date();
+		const anchorDate = data.anchorDate ? parseLocalDate(data.anchorDate) : new Date();
 
 		const bucket = await createBucket({
 			name: data.name,

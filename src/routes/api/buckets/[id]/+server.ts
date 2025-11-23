@@ -5,6 +5,7 @@ import {
 	updateBucket,
 	deleteBucket
 } from '$lib/server/db/bucket-queries';
+import { parseLocalDate } from '$lib/utils/dates';
 
 export const GET: RequestHandler = async ({ params }) => {
 	try {
@@ -29,7 +30,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		// Convert date string to Date object if present
 		if (data.anchorDate) {
-			data.anchorDate = new Date(data.anchorDate);
+			data.anchorDate = parseLocalDate(data.anchorDate);
 		}
 
 		const bucket = await updateBucket(id, data);
@@ -52,7 +53,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
 		// Convert date string to Date object if present
 		if (data.anchorDate) {
-			data.anchorDate = new Date(data.anchorDate);
+			data.anchorDate = parseLocalDate(data.anchorDate);
 		}
 
 		const bucket = await updateBucket(id, data);
