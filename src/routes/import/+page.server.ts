@@ -12,10 +12,27 @@ import {
 	addPaymentHistory,
 	updateImportedTransaction,
 	markTransactionsAsProcessed,
-	checkDuplicateFitId
+	checkDuplicateFitId,
+	markBillAsPaid,
+	updateBill
 } from '$lib/server/db/queries';
 import { getAllBucketsWithCurrentCycle, getAllBuckets, createTransaction, createBucket } from '$lib/server/db/bucket-queries';
 import { parseLocalDate } from '$lib/utils/dates';
+import { calculateNextDueDate } from '$lib/server/utils/recurrence';
+
+/**
+ * Check if a payment date falls within the current billing cycle for a bill
+ * Current cycle is defined as: 30 days before due date to 7 days after due date
+ */
+function isPaymentForCurrentCycle(paymentDate: Date, billDueDate: Date): boolean {
+	const cycleStart = new Date(billDueDate);
+	cycleStart.setDate(cycleStart.getDate() - 30); // 30 days before due date
+
+	const cycleEnd = new Date(billDueDate);
+	cycleEnd.setDate(cycleEnd.getDate() + 7); // 7 days grace period after due date
+
+	return paymentDate >= cycleStart && paymentDate <= cycleEnd;
+}
 
 export const load: PageServerLoad = async ({ url }) => {
 	const sessionId = url.searchParams.get('session');
@@ -213,6 +230,29 @@ export const actions: Actions = {
 				if (action === 'map_existing' && billId && transactionData) {
 					// Map to existing bill - add as payment history
 					addPaymentHistory(billId, amount, transactionData.transaction.datePosted);
+
+					// Check if this payment is for the current billing cycle
+					const existingBill = existingBills.find(b => b.id === billId);
+					if (existingBill && isPaymentForCurrentCycle(transactionData.transaction.datePosted, existingBill.dueDate)) {
+						markBillAsPaid(billId, true);
+					}
+
+					// If this is a recurring bill that was marked as paid, advance the due date
+					if (existingBill && isPaymentForCurrentCycle(transactionData.transaction.datePosted, existingBill.dueDate)) {
+						if (existingBill.isRecurring && existingBill.recurrenceType) {
+							const nextDueDate = calculateNextDueDate(
+								existingBill.dueDate,
+								existingBill.recurrenceType as any,
+								existingBill.recurrenceDay
+							);
+
+							updateBill(billId, {
+								isPaid: false,
+								dueDate: nextDueDate
+							});
+						}
+					}
+
 					updateImportedTransaction(transactionId, {
 						mappedBillId: billId,
 						isProcessed: true
@@ -223,6 +263,11 @@ export const actions: Actions = {
 					const normalizedBillName = billName.toLowerCase().trim();
 					let billIdToUse: number;
 					let wasNewlyCreated = false;
+					const billDueDate = parseLocalDate(dueDate);
+					const paymentDate = transactionData.transaction.datePosted;
+
+					// Check if payment is for current billing cycle
+					const shouldMarkAsPaid = isPaymentForCurrentCycle(paymentDate, billDueDate);
 
 					if (billNameMap.has(normalizedBillName)) {
 						// Reuse existing bill
@@ -232,12 +277,12 @@ export const actions: Actions = {
 						const newBill = createBill({
 							name: billName,
 							amount,
-							dueDate: parseLocalDate(dueDate),
+							dueDate: billDueDate,
 							categoryId: categoryId || null,
 							isRecurring: isRecurring || false,
 							recurrenceType: recurrenceType || null,
-							recurrenceDay: null,
-							isPaid: false,
+							recurrenceDay: (isRecurring && recurrenceType === 'monthly') ? billDueDate.getDate() : null,
+							isPaid: shouldMarkAsPaid,
 							isAutopay: false,
 							notes: null,
 							paymentLink: null
@@ -252,6 +297,33 @@ export const actions: Actions = {
 					// Add payment history for the imported transaction (existing or newly created bill)
 					addPaymentHistory(billIdToUse, amount, transactionData.transaction.datePosted, 'Payment recorded from import');
 
+					// If reusing existing bill and payment is for current cycle, mark as paid
+					if (!wasNewlyCreated && shouldMarkAsPaid) {
+						markBillAsPaid(billIdToUse, true);
+					}
+
+
+					// If this is a recurring bill that was marked as paid, advance the due date
+					if (shouldMarkAsPaid && (isRecurring || !wasNewlyCreated)) {
+						// For newly created bills, use the values from the form
+						// For existing bills, we need to check if they are recurring
+						const billToUpdate = wasNewlyCreated
+							? { isRecurring, recurrenceType, recurrenceDay: billDueDate.getDate() }
+							: existingBills.find(b => b.id === billIdToUse);
+
+						if (billToUpdate?.isRecurring && billToUpdate.recurrenceType) {
+							const nextDueDate = calculateNextDueDate(
+								billDueDate,
+								billToUpdate.recurrenceType as any,
+								billToUpdate.recurrenceDay || billDueDate.getDate()
+							);
+
+							updateBill(billIdToUse, {
+								isPaid: false,
+								dueDate: nextDueDate
+							});
+						}
+					}
 					updateImportedTransaction(transactionId, {
 						mappedBillId: billIdToUse,
 						createNewBill: wasNewlyCreated,

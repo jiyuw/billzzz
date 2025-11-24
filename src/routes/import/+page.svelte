@@ -70,7 +70,9 @@
 				action: 'skip' as const,
 				amount: t.transaction.amount,
 				billName: t.transaction.payee,
-				dueDate: formatDateForInput(new Date(t.transaction.datePosted))
+				dueDate: formatDateForInput(new Date(t.transaction.datePosted)),
+				isRecurring: true,
+				recurrenceType: 'monthly'
 			}));
 		}
 	});

@@ -27,10 +27,22 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		const id = parseInt(params.id);
 		const data = await request.json();
 
+		// Handle both ISO timestamp and YYYY-MM-DD formats for dueDate
+		let parsedDueDate: Date | undefined;
+		if (data.dueDate) {
+			if (data.dueDate.includes('T')) {
+				// ISO timestamp format: "2025-10-31T05:00:00.000Z"
+				parsedDueDate = new Date(data.dueDate.split('T')[0] + 'T00:00:00Z');
+			} else {
+				// YYYY-MM-DD format
+				parsedDueDate = parseLocalDate(data.dueDate);
+			}
+		}
+
 		const updateData: any = {
 			name: data.name,
 			amount: data.amount ? parseFloat(data.amount) : undefined,
-			dueDate: data.dueDate ? parseLocalDate(data.dueDate) : undefined,
+			dueDate: parsedDueDate,
 			paymentLink: data.paymentLink,
 			categoryId: data.categoryId,
 			isRecurring: data.isRecurring,
