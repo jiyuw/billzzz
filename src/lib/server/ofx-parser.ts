@@ -43,18 +43,21 @@ export async function parseOfxFile(fileBuffer: Buffer): Promise<OFXParseResult> 
 				// The library may return either:
 				// - ISO format: "2025-11-03"
 				// - OFX format: "20251103000000.000[-5:EST]" or "20251103"
+				// Parse as local timezone to preserve calendar date
 				const dateStr = String(txn.DTPOSTED);
 				let datePosted: Date;
 
 				if (dateStr.includes('-')) {
 					// ISO format: "2025-11-03"
-					datePosted = new Date(dateStr + 'T00:00:00Z');
+					// Parse components to create local date (not UTC)
+					const [year, month, day] = dateStr.split('-').map(Number);
+					datePosted = new Date(year, month - 1, day);
 				} else {
-					// OFX format: "20251103..." - parse manually
+					// OFX format: "20251103..." - parse manually as local date
 					const year = parseInt(dateStr.substring(0, 4));
 					const month = parseInt(dateStr.substring(4, 6)) - 1; // JS months are 0-indexed
 					const day = parseInt(dateStr.substring(6, 8));
-					datePosted = new Date(Date.UTC(year, month, day));
+					datePosted = new Date(year, month, day); // Local timezone, not UTC
 				}
 
 				const transactionType = txn.TRNTYPE;
