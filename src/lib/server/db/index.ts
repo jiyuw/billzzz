@@ -232,6 +232,31 @@ function initializeDatabase() {
 		sqlite.exec("UPDATE imported_transactions SET is_income = 1 WHERE transaction_type = 'CREDIT'");
 		console.log('Backfilled existing CREDIT transactions as income');
 	}
+
+	// Fix orphaned transactions (both bills and buckets)
+	// This can happen if bills/buckets were deleted before this fix was implemented
+	const orphanedBillTxns = sqlite.prepare(
+		"SELECT COUNT(*) as count FROM imported_transactions WHERE mapped_bill_id IS NULL AND mapped_bucket_id IS NULL AND is_processed = 1 AND is_income = 0"
+	).get() as { count: number };
+
+	if (orphanedBillTxns.count > 0) {
+		sqlite.exec(
+			"UPDATE imported_transactions SET is_processed = 0 WHERE mapped_bill_id IS NULL AND mapped_bucket_id IS NULL AND is_processed = 1 AND is_income = 0"
+		);
+		console.log(`Reset ${orphanedBillTxns.count} orphaned bill transactions to allow re-import`);
+	}
+
+	// Also check for transactions mapped to soft-deleted buckets
+	const orphanedBucketTxns = sqlite.prepare(
+		"SELECT COUNT(*) as count FROM imported_transactions it INNER JOIN buckets b ON it.mapped_bucket_id = b.id WHERE b.is_deleted = 1 AND it.is_processed = 1"
+	).get() as { count: number };
+
+	if (orphanedBucketTxns.count > 0) {
+		sqlite.exec(
+			"UPDATE imported_transactions SET is_processed = 0, mapped_bucket_id = NULL WHERE mapped_bucket_id IN (SELECT id FROM buckets WHERE is_deleted = 1) AND is_processed = 1"
+		);
+		console.log(`Reset ${orphanedBucketTxns.count} orphaned bucket transactions to allow re-import`);
+	}
 	} catch (error) {
 		console.error('Migration error:', error);
 	}

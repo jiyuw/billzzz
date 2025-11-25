@@ -112,6 +112,20 @@ export async function updateBucket(id: number, data: Partial<NewBucket>): Promis
  * Soft delete a bucket
  */
 export async function deleteBucket(id: number): Promise<void> {
+	// First, get the importedTransactions table reference
+	const { importedTransactions } = await import('./schema');
+
+	// Reset any imported transactions that were mapped to this bucket
+	// This allows them to be re-imported and remapped after bucket deletion
+	await db
+		.update(importedTransactions)
+		.set({
+			isProcessed: false,
+			mappedBucketId: null
+		})
+		.where(eq(importedTransactions.mappedBucketId, id));
+
+	// Soft delete the bucket
 	await db
 		.update(buckets)
 		.set({

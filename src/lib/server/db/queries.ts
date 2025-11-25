@@ -164,6 +164,17 @@ export function updateBill(id: number, data: Partial<NewBill>) {
 }
 
 export function deleteBill(id: number) {
+	// Reset any imported transactions that were mapped to this bill
+	// This allows them to be re-imported and remapped after bill deletion
+	db.update(importedTransactions)
+		.set({
+			isProcessed: false,
+			mappedBillId: null // Redundant due to foreign key, but explicit
+		})
+		.where(eq(importedTransactions.mappedBillId, id))
+		.run();
+
+	// Delete the bill (payment_history will cascade delete automatically)
 	return db.delete(bills).where(eq(bills.id, id)).returning().get();
 }
 
