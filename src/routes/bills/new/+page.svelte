@@ -52,7 +52,12 @@
 
 		<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-sm">
 			<h1 class="mb-6 text-2xl font-bold text-gray-900 dark:text-gray-100">Add New Bill</h1>
-			<BillForm categories={data.categories} onSubmit={handleSubmit} onCancel={handleCancel} />
+			<BillForm
+				categories={data.categories}
+				paymentMethods={data.paymentMethods}
+				onSubmit={handleSubmit}
+				onCancel={handleCancel}
+			/>
 		</div>
 	</div>
 </div>

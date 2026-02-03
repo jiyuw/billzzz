@@ -1,9 +1,13 @@
 <script lang="ts">
 	import type { PageData } from './$types';
-	import { goto } from '$app/navigation';
+	import { goto, invalidateAll } from '$app/navigation';
 	import { formatCurrency } from '$lib/utils/format';
+	import { getRecurrenceDescription } from '$lib/utils/recurrence';
 	import { format } from 'date-fns';
 	import { ArrowLeft, Calendar, DollarSign, TrendingUp } from 'lucide-svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import BillForm from '$lib/components/BillForm.svelte';
+	import PaymentModal from '$lib/components/PaymentModal.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -108,6 +112,92 @@
 		if (totalPaid > 0) return 'bg-yellow-500';
 		return 'bg-gray-300 dark:bg-gray-600';
 	}
+
+	const isCyclePaid = $derived.by(() => {
+		if (!currentCycle) return false;
+		if (currentCycle.expectedAmount > 0) {
+			return currentCycle.isPaid || currentCycle.totalPaid >= currentCycle.expectedAmount;
+		}
+		return currentCycle.totalPaid > 0;
+	});
+
+	let showEditModal = $state(false);
+	let showPaymentModal = $state(false);
+
+	async function handleTogglePaid() {
+		if (!bill.isPaid) {
+			showPaymentModal = true;
+			return;
+		}
+		try {
+			const response = await fetch(`/api/bills/${bill.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isPaid: false })
+			});
+			if (response.ok) {
+				await invalidateAll();
+			}
+		} catch (error) {
+			console.error('Error toggling bill status:', error);
+		}
+	}
+
+	async function handleConfirmPayment(amount: number, paymentDate: string) {
+		try {
+			const response = await fetch(`/api/bills/${bill.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate })
+			});
+			if (response.ok) {
+				showPaymentModal = false;
+				await invalidateAll();
+			} else {
+				alert('Failed to record payment. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error recording payment:', error);
+			alert('Failed to record payment. Please try again.');
+		}
+	}
+
+	function handleCancelPayment() {
+		showPaymentModal = false;
+	}
+
+	async function handleDelete() {
+		if (!confirm('Are you sure you want to delete this bill?')) return;
+		try {
+			const response = await fetch(`/api/bills/${bill.id}`, {
+				method: 'DELETE'
+			});
+			if (response.ok) {
+				goto('/');
+			}
+		} catch (error) {
+			console.error('Error deleting bill:', error);
+		}
+	}
+
+	async function handleUpdateBill(billData: any) {
+		try {
+			const response = await fetch(`/api/bills/${bill.id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(billData)
+			});
+			if (response.ok) {
+				showEditModal = false;
+				await invalidateAll();
+			} else {
+				alert('Failed to update bill. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error updating bill:', error);
+			alert('Failed to update bill. Please try again.');
+		}
+	}
 </script>
 
 <div class="container mx-auto px-4 py-8 max-w-6xl">
@@ -115,31 +205,106 @@
 	<div class="mb-6">
 		<button
 			onclick={() => goto('/')}
-			class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4"
+			class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 mb-4 cursor-pointer"
 		>
 			<ArrowLeft class="w-4 h-4" />
 			Back to Bills
 		</button>
 
 		<div class="flex items-start justify-between">
-			<div>
+			<div class="flex-1">
 				<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{bill.name}</h1>
 				<p class="text-gray-600 dark:text-gray-400 mt-1">
 					{#if bill.isRecurring}
-						Recurring {bill.recurrenceType} • Due {format(bill.dueDate, 'MMM d, yyyy')}
+						Recurring {getRecurrenceDescription(bill.recurrenceInterval ?? 1, bill.recurrenceUnit ?? 'month', bill.recurrenceDay)} • Due {format(bill.dueDate, 'MMM d, yyyy')}
 					{:else}
 						One-time bill • Due {format(bill.dueDate, 'MMM d, yyyy')}
 					{/if}
 				</p>
 			</div>
-			{#if !bill.isVariable}
-				<div class="text-right">
-					<p class="text-sm text-gray-600 dark:text-gray-400">Expected Amount</p>
-					<p class="text-2xl font-bold text-gray-900 dark:text-gray-100">
-						{formatCurrency(bill.amount)}
-					</p>
-				</div>
-			{/if}
+			<div class="flex items-center gap-2">
+				<button
+					onclick={handleTogglePaid}
+					class="rounded-md p-2 min-h-9 min-w-9 transition-all text-gray-500 hover:bg-gray-100 hover:text-gray-700 hover:scale-105 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300 cursor-pointer"
+					title={isCyclePaid ? 'Paid' : 'Mark as paid'}
+				>
+					{#if isCyclePaid}
+						<svg
+							class="h-6 w-6"
+							viewBox="0 0 20 20"
+							xmlns="http://www.w3.org/2000/svg"
+							aria-hidden="true"
+						>
+							<circle cx="10" cy="10" r="8" fill="#16a34a" />
+							<path
+								d="M6.5 10.5l2 2 5-5"
+								fill="none"
+								stroke="#ffffff"
+								stroke-width="2"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+							/>
+						</svg>
+					{:else}
+						<svg
+							class="h-6 w-6"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+							/>
+						</svg>
+					{/if}
+				</button>
+
+				<button
+					onclick={() => (showEditModal = true)}
+					class="rounded-md p-2 min-h-9 min-w-9 text-gray-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:scale-105 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400 cursor-pointer"
+					title="Edit bill"
+				>
+					<svg
+						class="h-6 w-6"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+						/>
+					</svg>
+				</button>
+
+				<button
+					onclick={handleDelete}
+					class="rounded-md p-2 min-h-9 min-w-9 text-gray-500 transition-all hover:bg-red-50 hover:text-red-600 hover:scale-105 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-400 cursor-pointer"
+					title="Delete bill"
+				>
+					<svg
+						class="h-6 w-6"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="2"
+							d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+						/>
+					</svg>
+				</button>
+			</div>
 		</div>
 	</div>
 
@@ -166,12 +331,14 @@
 							: formatCurrency(currentCycle.totalPaid)}
 					</p>
 				</div>
-				<div>
-					<p class="text-sm text-gray-600 dark:text-gray-400">Remaining</p>
-					<p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-						{formatCurrency(currentCycle.remaining)}
-					</p>
-				</div>
+				{#if !bill.isVariable}
+					<div>
+						<p class="text-sm text-gray-600 dark:text-gray-400">Expected Amount</p>
+						<p class="text-lg font-medium text-gray-900 dark:text-gray-100">
+							{formatCurrency(currentCycle.expectedAmount)}
+						</p>
+					</div>
+				{/if}
 			</div>
 
 			{#if !bill.isVariable}
@@ -410,3 +577,39 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Edit Bill Modal -->
+{#if showEditModal}
+	<Modal bind:isOpen={showEditModal} onClose={() => (showEditModal = false)} title="Edit Bill">
+		<BillForm
+			categories={data.categories}
+			paymentMethods={data.paymentMethods}
+			initialData={{
+				name: bill.name,
+				amount: bill.amount,
+				dueDate: bill.dueDate,
+				paymentLink: bill.paymentLink || undefined,
+				categoryId: bill.categoryId,
+				isRecurring: bill.isRecurring,
+				recurrenceInterval: bill.recurrenceInterval || undefined,
+				recurrenceUnit: bill.recurrenceUnit || undefined,
+				recurrenceDay: bill.recurrenceDay || undefined,
+				isAutopay: bill.isAutopay,
+				paymentMethodId: bill.paymentMethodId ?? undefined,
+				isVariable: bill.isVariable,
+				notes: bill.notes || undefined
+			}}
+			onSubmit={handleUpdateBill}
+			onCancel={() => (showEditModal = false)}
+			submitLabel="Update Bill"
+		/>
+	</Modal>
+{/if}
+
+<!-- Payment Confirmation Modal -->
+<PaymentModal
+	bind:isOpen={showPaymentModal}
+	bill={bill}
+	onConfirm={handleConfirmPayment}
+	onCancel={handleCancelPayment}
+/>

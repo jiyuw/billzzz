@@ -12,7 +12,8 @@ import {
 	debts,
 	debtPayments,
 	debtStrategySettings,
-	paydaySettings
+	paydaySettings,
+	paymentMethods
 } from '$lib/server/db/schema';
 
 interface ImportData {
@@ -30,6 +31,7 @@ interface ImportData {
 		debtPayments: any[];
 		debtStrategySettings: any[];
 		paydaySettings: any[];
+		paymentMethods?: any[];
 	};
 }
 
@@ -72,6 +74,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		db.delete(billPayments).run();
 		db.delete(billCycles).run();
 		db.delete(bills).run();
+		db.delete(paymentMethods).run();
 		db.delete(debtPayments).run();
 		db.delete(debts).run();
 		db.delete(debtStrategySettings).run();
@@ -89,7 +92,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			debts: 0,
 			debtPayments: 0,
 			debtStrategySettings: 0,
-			paydaySettings: 0
+			paydaySettings: 0,
+			paymentMethods: 0
 		};
 
 		// Import data (in order to respect foreign key constraints)
@@ -101,6 +105,11 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (importData.data.paydaySettings?.length > 0) {
 			db.insert(paydaySettings).values(importData.data.paydaySettings).run();
 			importedCounts.paydaySettings = importData.data.paydaySettings.length;
+		}
+
+		if (importData.data.paymentMethods?.length > 0) {
+			db.insert(paymentMethods).values(importData.data.paymentMethods).run();
+			importedCounts.paymentMethods = importData.data.paymentMethods.length;
 		}
 
 		if (importData.data.bills?.length > 0) {

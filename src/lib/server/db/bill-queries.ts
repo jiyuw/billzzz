@@ -148,7 +148,7 @@ async function ensureCyclesExist(bill: Bill): Promise<void> {
 		// No cycles exist
 		// For recurring bills, start from due date
 		// For non-recurring bills, create single cycle
-		if (bill.isRecurring && bill.recurrenceType) {
+		if (bill.isRecurring && bill.recurrenceUnit && bill.recurrenceInterval) {
 			startFrom = bill.dueDate;
 		} else {
 			// Create single cycle for non-recurring bill
@@ -171,7 +171,7 @@ async function ensureCyclesExist(bill: Bill): Promise<void> {
 		}
 
 		// For non-recurring bills, don't create more cycles
-		if (!bill.isRecurring || !bill.recurrenceType) {
+		if (!bill.isRecurring || !bill.recurrenceUnit || !bill.recurrenceInterval) {
 			return;
 		}
 

@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
 import { getBillWithCurrentCycle, getCyclesForBill, getPaymentsForBill } from '$lib/server/db/bill-queries';
+import { getAllCategories, getAllPaymentMethods } from '$lib/server/db/queries';
 
 export const load: PageServerLoad = async ({ params }) => {
 	const id = parseInt(params.id);
@@ -17,10 +18,14 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const allCycles = await getCyclesForBill(id);
 	const payments = await getPaymentsForBill(id);
+	const categories = getAllCategories();
+	const paymentMethods = getAllPaymentMethods();
 
 	return {
 		bill: billWithCycle,
 		cycles: allCycles,
-		payments
+		payments,
+		categories,
+		paymentMethods
 	};
 };

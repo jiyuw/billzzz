@@ -1,11 +1,13 @@
 <script lang="ts">
 	import type { Category } from '$lib/types/bill';
-	import type { RecurrenceType } from '$lib/types/bill';
+	import type { RecurrenceUnit } from '$lib/types/bill';
 	import { format } from 'date-fns';
 	import Button from '$lib/components/Button.svelte';
+	import type { PaymentMethod } from '$lib/server/db/schema';
 
 	interface Props {
 		categories: Category[];
+		paymentMethods?: PaymentMethod[];
 		initialData?: {
 			name?: string;
 			amount?: number;
@@ -13,9 +15,11 @@
 			paymentLink?: string;
 			categoryId?: number | null;
 			isRecurring?: boolean;
-			recurrenceType?: RecurrenceType | null;
+			recurrenceInterval?: number | null;
+			recurrenceUnit?: RecurrenceUnit | null;
 			recurrenceDay?: number | null;
 			isAutopay?: boolean;
+			paymentMethodId?: number | null;
 			isVariable?: boolean;
 			notes?: string;
 		};
@@ -26,6 +30,7 @@
 
 	let {
 		categories,
+		paymentMethods = [],
 		initialData,
 		onSubmit,
 		onCancel,
@@ -38,9 +43,11 @@
 	let paymentLink = $state('');
 	let categoryId = $state<number | null>(null);
 	let isRecurring = $state(false);
-	let recurrenceType = $state<RecurrenceType | null>('monthly');
+	let recurrenceInterval = $state(1);
+	let recurrenceUnit = $state<RecurrenceUnit>('month');
 	let recurrenceDay = $state<number | null>(null);
 	let isAutopay = $state(false);
+	let paymentMethodId = $state<number | null>(null);
 	let isVariable = $state(false);
 	let notes = $state('');
 	let isSubmitting = $state(false);
@@ -53,9 +60,11 @@
 		paymentLink = initialData?.paymentLink || '';
 		categoryId = initialData?.categoryId || null;
 		isRecurring = initialData?.isRecurring || false;
-		recurrenceType = initialData?.recurrenceType || 'monthly';
+		recurrenceInterval = initialData?.recurrenceInterval || 1;
+		recurrenceUnit = initialData?.recurrenceUnit || 'month';
 		recurrenceDay = initialData?.recurrenceDay || null;
 		isAutopay = initialData?.isAutopay || false;
+		paymentMethodId = initialData?.paymentMethodId ?? null;
 		isVariable = initialData?.isVariable || false;
 		notes = initialData?.notes || '';
 	});
@@ -76,9 +85,13 @@
 				paymentLink: paymentLink || null,
 				categoryId,
 				isRecurring,
-				recurrenceType: isRecurring ? recurrenceType : null,
-				recurrenceDay: isRecurring && (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly') ? recurrenceDay : null,
+				recurrenceInterval: isRecurring ? recurrenceInterval : null,
+				recurrenceUnit: isRecurring ? recurrenceUnit : null,
+				recurrenceDay: isRecurring && (recurrenceUnit === 'month' || recurrenceUnit === 'year')
+					? (recurrenceDay ?? localDate.getDate())
+					: null,
 				isAutopay,
+				paymentMethodId: isAutopay ? paymentMethodId : null,
 				isVariable,
 				notes: notes || null
 			});
@@ -191,16 +204,44 @@
 	</div>
 
 	<!-- Autopay -->
-	<div class="flex items-center">
-		<input
-			type="checkbox"
-			id="isAutopay"
-			bind:checked={isAutopay}
-			class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
-		/>
-		<label for="isAutopay" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-			This bill is set to autopay
-		</label>
+	<div class="space-y-4 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+		<div class="flex items-center">
+			<input
+				type="checkbox"
+				id="isAutopay"
+				bind:checked={isAutopay}
+				class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+			/>
+			<label for="isAutopay" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+				This bill is set to autopay
+			</label>
+		</div>
+
+		{#if isAutopay}
+			<div>
+				<label for="paymentMethodId" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+					Payment Method
+				</label>
+				<select
+					id="paymentMethodId"
+					bind:value={paymentMethodId}
+					required
+					class="mt-1 block w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+				>
+					<option value={null}>Select a payment method</option>
+					{#each paymentMethods as method}
+						<option value={method.id}>
+							{method.nickname} •••• {method.lastFour}
+						</option>
+					{/each}
+				</select>
+				{#if paymentMethods.length === 0}
+					<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+						Add a payment method in Settings to use autopay.
+					</p>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Recurring -->
@@ -220,24 +261,31 @@
 		{#if isRecurring}
 			<div class="space-y-4">
 				<div>
-					<label for="recurrenceType" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+					<label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
 						Frequency
 					</label>
-					<select
-						id="recurrenceType"
-						bind:value={recurrenceType}
-						class="mt-1 block w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-					>
-						<option value="weekly">Weekly</option>
-						<option value="biweekly">Every 2 Weeks</option>
-						<option value="bimonthly">Every 2 Months</option>
-						<option value="monthly">Monthly</option>
-						<option value="quarterly">Quarterly</option>
-						<option value="yearly">Yearly</option>
-					</select>
+					<div class="mt-1 flex items-center gap-2">
+						<span class="text-sm text-gray-600 dark:text-gray-400">Every</span>
+						<input
+							type="number"
+							min="1"
+							bind:value={recurrenceInterval}
+							step="1"
+							class="w-20 rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+						/>
+						<select
+							bind:value={recurrenceUnit}
+							class="min-w-[140px] rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+						>
+							<option value="day">Day(s)</option>
+							<option value="week">Week(s)</option>
+							<option value="month">Month(s)</option>
+							<option value="year">Year(s)</option>
+						</select>
+					</div>
 				</div>
 
-				{#if recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly'}
+				{#if recurrenceUnit === 'month' || recurrenceUnit === 'year'}
 					<div>
 						<label for="recurrenceDay" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
 							Day of Month

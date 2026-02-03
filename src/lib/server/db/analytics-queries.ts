@@ -2,7 +2,7 @@ import { db } from './index';
 import { bills, buckets, debts, paydaySettings, userPreferences, importedTransactions } from './schema';
 import { eq, and, gte, lte, desc } from 'drizzle-orm';
 import { calculateNextPayday, calculateFollowingPayday } from '../utils/payday';
-import { addDays, addWeeks, addMonths, addQuarters, addYears, startOfDay, differenceInDays } from 'date-fns';
+import { addDays, addWeeks, addMonths, addYears, startOfDay, differenceInDays } from 'date-fns';
 
 export interface CashFlowDataPoint {
 	date: Date;
@@ -81,25 +81,22 @@ async function calculateMonthlyObligations() {
 		if (!bill.isRecurring) {
 			continue; // Skip one-time bills for monthly calculation
 		}
+		if (!bill.recurrenceUnit || !bill.recurrenceInterval) {
+			continue;
+		}
 
-		switch (bill.recurrenceType) {
-			case 'weekly':
-				monthlyBills += bill.amount * 4.33; // Average weeks per month
+		switch (bill.recurrenceUnit) {
+			case 'day':
+				monthlyBills += bill.amount * (30 / (bill.recurrenceInterval || 1));
 				break;
-			case 'biweekly':
-				monthlyBills += bill.amount * 2.17; // Average bi-weeks per month
+			case 'week':
+				monthlyBills += bill.amount * (4.33 / (bill.recurrenceInterval || 1));
 				break;
-			case 'bimonthly':
-				monthlyBills += bill.amount / 2;
+			case 'month':
+				monthlyBills += bill.amount / (bill.recurrenceInterval || 1);
 				break;
-			case 'monthly':
-				monthlyBills += bill.amount;
-				break;
-			case 'quarterly':
-				monthlyBills += bill.amount / 3;
-				break;
-			case 'yearly':
-				monthlyBills += bill.amount / 12;
+			case 'year':
+				monthlyBills += bill.amount / (12 * (bill.recurrenceInterval || 1));
 				break;
 		}
 	}
@@ -221,31 +218,25 @@ async function projectCashFlow(
 			continue;
 		}
 
-		if (bill.isRecurring && bill.recurrenceType) {
+		if (bill.isRecurring && bill.recurrenceUnit && bill.recurrenceInterval) {
 			// For recurring bills, calculate all occurrences in the projection period
 			// Start with the bill's original due date
 			let nextOccurrence = startOfDay(bill.dueDate);
 
 			// Fast-forward to the first occurrence on or after today
 			while (nextOccurrence < today) {
-				switch (bill.recurrenceType) {
-					case 'weekly':
-						nextOccurrence = addWeeks(nextOccurrence, 1);
+				switch (bill.recurrenceUnit) {
+					case 'day':
+						nextOccurrence = addDays(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'biweekly':
-						nextOccurrence = addWeeks(nextOccurrence, 2);
+					case 'week':
+						nextOccurrence = addWeeks(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'bimonthly':
-						nextOccurrence = addMonths(nextOccurrence, 2);
+					case 'month':
+						nextOccurrence = addMonths(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'monthly':
-						nextOccurrence = addMonths(nextOccurrence, 1);
-						break;
-					case 'quarterly':
-						nextOccurrence = addQuarters(nextOccurrence, 1);
-						break;
-					case 'yearly':
-						nextOccurrence = addYears(nextOccurrence, 1);
+					case 'year':
+						nextOccurrence = addYears(nextOccurrence, bill.recurrenceInterval);
 						break;
 				}
 			}
@@ -259,24 +250,18 @@ async function projectCashFlow(
 				billDueDates.get(dateKey)!.push({ bill, dueDate: nextOccurrence });
 
 				// Calculate next occurrence based on recurrence type
-				switch (bill.recurrenceType) {
-					case 'weekly':
-						nextOccurrence = addWeeks(nextOccurrence, 1);
+				switch (bill.recurrenceUnit) {
+					case 'day':
+						nextOccurrence = addDays(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'biweekly':
-						nextOccurrence = addWeeks(nextOccurrence, 2);
+					case 'week':
+						nextOccurrence = addWeeks(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'bimonthly':
-						nextOccurrence = addMonths(nextOccurrence, 2);
+					case 'month':
+						nextOccurrence = addMonths(nextOccurrence, bill.recurrenceInterval);
 						break;
-					case 'monthly':
-						nextOccurrence = addMonths(nextOccurrence, 1);
-						break;
-					case 'quarterly':
-						nextOccurrence = addQuarters(nextOccurrence, 1);
-						break;
-					case 'yearly':
-						nextOccurrence = addYears(nextOccurrence, 1);
+					case 'year':
+						nextOccurrence = addYears(nextOccurrence, bill.recurrenceInterval);
 						break;
 				}
 			}

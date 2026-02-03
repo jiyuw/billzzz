@@ -19,7 +19,8 @@ async function seedBills() {
 				paymentLink: 'https://example.com/electric',
 				categoryId: utilitiesCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				recurrenceDay: 15,
 				isPaid: false,
 				notes: 'Monthly electricity payment'
@@ -31,7 +32,8 @@ async function seedBills() {
 				paymentLink: 'https://netflix.com',
 				categoryId: subscriptionsCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				recurrenceDay: 1,
 				isPaid: false,
 				notes: 'Premium plan'
@@ -42,7 +44,8 @@ async function seedBills() {
 				dueDate: addMonths(new Date(), 1),
 				categoryId: rentCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				recurrenceDay: 1,
 				isPaid: false,
 				notes: 'Monthly rent payment'
@@ -53,7 +56,8 @@ async function seedBills() {
 				dueDate: addDays(new Date(), -2),
 				categoryId: insuranceCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				isPaid: false,
 				notes: 'Auto insurance premium - OVERDUE'
 			},
@@ -64,7 +68,8 @@ async function seedBills() {
 				paymentLink: 'https://example.com/isp',
 				categoryId: utilitiesCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				isPaid: false,
 				notes: 'Fiber optic 1Gbps'
 			},
@@ -74,7 +79,8 @@ async function seedBills() {
 				dueDate: addDays(new Date(), 1),
 				categoryId: subscriptionsCategory?.id || null,
 				isRecurring: true,
-				recurrenceType: 'monthly' as const,
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month',
 				isPaid: true,
 				notes: 'Already paid this month'
 			}

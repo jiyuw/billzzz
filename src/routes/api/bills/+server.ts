@@ -43,6 +43,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		if (!data.name || (!data.isVariable && !data.amount) || !data.dueDate) {
 			return json({ error: 'Missing required fields' }, { status: 400 });
 		}
+		if (data.isRecurring && (!data.recurrenceInterval || !data.recurrenceUnit)) {
+			return json({ error: 'Missing recurrence interval or unit' }, { status: 400 });
+		}
 
 		// Parse and validate due date
 		let dueDate: Date;
@@ -59,6 +62,9 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'Invalid due date format. Expected YYYY-MM-DD or ISO timestamp' }, { status: 400 });
 		}
 
+		const parsedPaymentMethodId = data.paymentMethodId ? parseInt(data.paymentMethodId) : null;
+		const normalizedPaymentMethodId = Number.isNaN(parsedPaymentMethodId) ? null : parsedPaymentMethodId;
+
 		const newBill: NewBill = {
 			name: data.name,
 			amount: data.isVariable ? 0 : parseFloat(data.amount),
@@ -66,10 +72,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			paymentLink: data.paymentLink || null,
 			categoryId: data.categoryId || null,
 			isRecurring: data.isRecurring || false,
-			recurrenceType: data.recurrenceType || null,
-			recurrenceDay: data.recurrenceDay || null,
+			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : null,
+			recurrenceUnit: data.recurrenceUnit || null,
+			recurrenceDay: data.recurrenceDay ? parseInt(data.recurrenceDay) : null,
 			isPaid: data.isPaid || false,
 			isAutopay: data.isAutopay || false,
+			paymentMethodId: data.isAutopay ? normalizedPaymentMethodId : null,
 			isVariable: data.isVariable || false,
 			notes: data.notes || null
 		};

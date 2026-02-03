@@ -12,7 +12,8 @@ import {
 	debts,
 	debtPayments,
 	debtStrategySettings,
-	paydaySettings
+	paydaySettings,
+	paymentMethods
 } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async () => {
@@ -32,7 +33,8 @@ export const GET: RequestHandler = async () => {
 				debts: db.select().from(debts).all(),
 				debtPayments: db.select().from(debtPayments).all(),
 				debtStrategySettings: db.select().from(debtStrategySettings).all(),
-				paydaySettings: db.select().from(paydaySettings).all()
+				paydaySettings: db.select().from(paydaySettings).all(),
+				paymentMethods: db.select().from(paymentMethods).all()
 			}
 		};
 

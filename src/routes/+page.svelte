@@ -559,6 +559,7 @@
 	<Modal bind:isOpen={showAddModal} onClose={handleCloseModal} title="Add New Bill">
 		<BillForm
 			categories={data.categories}
+			paymentMethods={data.paymentMethods}
 			onSubmit={handleAddBill}
 			onCancel={handleCloseModal}
 			submitLabel="Add Bill"
@@ -571,6 +572,7 @@
 	<Modal bind:isOpen={showEditModal} onClose={handleCloseEditModal} title="Edit Bill">
 		<BillForm
 			categories={data.categories}
+			paymentMethods={data.paymentMethods}
 			initialData={{
 				name: editingBill.name,
 				amount: editingBill.amount,
@@ -578,9 +580,11 @@
 				paymentLink: editingBill.paymentLink || undefined,
 				categoryId: editingBill.categoryId,
 				isRecurring: editingBill.isRecurring,
-				recurrenceType: editingBill.recurrenceType || undefined,
+				recurrenceInterval: editingBill.recurrenceInterval || undefined,
+				recurrenceUnit: editingBill.recurrenceUnit || undefined,
 				recurrenceDay: editingBill.recurrenceDay || undefined,
 				isAutopay: editingBill.isAutopay,
+				paymentMethodId: editingBill.paymentMethodId ?? undefined,
 				isVariable: editingBill.isVariable,
 				notes: editingBill.notes || undefined
 			}}

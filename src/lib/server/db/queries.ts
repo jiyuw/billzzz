@@ -6,9 +6,12 @@ import {
 	importSessions,
 	importedTransactions,
 	accounts,
+	paymentMethods,
 	type NewBill,
 	type NewCategory,
 	type Category,
+	type NewPaymentMethod,
+	type PaymentMethod,
 	type NewPaydaySettings,
 	type NewImportSession,
 	type NewImportedTransaction,
@@ -106,6 +109,36 @@ export function deleteCategory(id: number) {
 	return db.delete(categories).where(eq(categories.id, id)).returning().get();
 }
 
+// ===== PAYMENT METHOD QUERIES =====
+
+export function getAllPaymentMethods(): PaymentMethod[] {
+	return db.select().from(paymentMethods).orderBy(paymentMethods.nickname).all();
+}
+
+export function getPaymentMethodById(id: number) {
+	return db.select().from(paymentMethods).where(eq(paymentMethods.id, id)).get();
+}
+
+export function createPaymentMethod(data: NewPaymentMethod) {
+	return db.insert(paymentMethods).values(data).returning().get();
+}
+
+export function updatePaymentMethod(id: number, data: Partial<NewPaymentMethod>) {
+	return db
+		.update(paymentMethods)
+		.set({
+			...data,
+			updatedAt: new Date()
+		})
+		.where(eq(paymentMethods.id, id))
+		.returning()
+		.get();
+}
+
+export function deletePaymentMethod(id: number) {
+	return db.delete(paymentMethods).where(eq(paymentMethods.id, id)).returning().get();
+}
+
 // ===== BILL QUERIES =====
 
 export function getAllBills(filters?: BillFilters, sort?: BillSort) {
@@ -117,8 +150,11 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 			dueDate: bills.dueDate,
 			paymentLink: bills.paymentLink,
 			categoryId: bills.categoryId,
+			paymentMethodId: bills.paymentMethodId,
 			isRecurring: bills.isRecurring,
 			recurrenceType: bills.recurrenceType,
+			recurrenceInterval: bills.recurrenceInterval,
+			recurrenceUnit: bills.recurrenceUnit,
 			recurrenceDay: bills.recurrenceDay,
 			isPaid: bills.isPaid,
 			isAutopay: bills.isAutopay,
@@ -199,8 +235,11 @@ export function getBillById(id: number) {
 			dueDate: bills.dueDate,
 			paymentLink: bills.paymentLink,
 			categoryId: bills.categoryId,
+			paymentMethodId: bills.paymentMethodId,
 			isRecurring: bills.isRecurring,
 			recurrenceType: bills.recurrenceType,
+			recurrenceInterval: bills.recurrenceInterval,
+			recurrenceUnit: bills.recurrenceUnit,
 			recurrenceDay: bills.recurrenceDay,
 			isPaid: bills.isPaid,
 			isAutopay: bills.isAutopay,

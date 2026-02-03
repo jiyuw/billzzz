@@ -59,7 +59,8 @@
 			dueDate?: string;
 			categoryId?: number;
 			isRecurring?: boolean;
-			recurrenceType?: string;
+			recurrenceInterval?: number;
+			recurrenceUnit?: string;
 			bucketId?: number;
 			bucketName?: string;
 			budgetAmount?: number;
@@ -80,7 +81,8 @@
 				billName: t.transaction.payee,
 				dueDate: formatDateForInput(new Date(t.transaction.datePosted)),
 				isRecurring: true,
-				recurrenceType: 'monthly'
+				recurrenceInterval: 1,
+				recurrenceUnit: 'month'
 			}));
 		}
 	});

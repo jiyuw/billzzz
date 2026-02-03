@@ -1,5 +1,5 @@
 import type { PageServerLoad, Actions } from './$types';
-import { getAllCategories, getPaydaySettings, getAllAccounts } from '$lib/server/db/queries';
+import { getAllCategories, getPaydaySettings, getAllAccounts, getAllPaymentMethods } from '$lib/server/db/queries';
 import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db/index';
 import {
@@ -17,6 +17,7 @@ import {
 	importSessions,
 	importedTransactions,
 	accounts,
+	paymentMethods,
 	userPreferences
 } from '$lib/server/db/schema';
 
@@ -35,6 +36,7 @@ interface ImportData {
 		debtPayments: any[];
 		debtStrategySettings: any[];
 		paydaySettings: any[];
+		paymentMethods?: any[];
 	};
 }
 
@@ -62,11 +64,13 @@ export const load: PageServerLoad = async () => {
 	const categoriesData = getAllCategories();
 	const paydaySettingsData = getPaydaySettings();
 	const accountsData = getAllAccounts();
+	const paymentMethodsData = getAllPaymentMethods();
 
 	return {
 		categories: categoriesData,
 		paydaySettings: paydaySettingsData,
-		accounts: accountsData
+		accounts: accountsData,
+		paymentMethods: paymentMethodsData
 	};
 };
 
@@ -109,10 +113,12 @@ export const actions: Actions = {
 			db.delete(billPayments).run();
 			db.delete(billCycles).run();
 			db.delete(bills).run();
+			db.delete(paymentMethods).run();
 			db.delete(debtPayments).run();
 			db.delete(debts).run();
 			db.delete(debtStrategySettings).run();
 			db.delete(paydaySettings).run();
+			db.delete(paymentMethods).run();
 			db.delete(categories).run();
 
 			let importedCounts = {
@@ -127,6 +133,8 @@ export const actions: Actions = {
 				debtPayments: 0,
 				debtStrategySettings: 0,
 				paydaySettings: 0
+				,
+				paymentMethods: 0
 			};
 
 			// Import data (in order to respect foreign key constraints)
@@ -140,6 +148,11 @@ export const actions: Actions = {
 				const convertedPaydaySettings = convertDatesToObjects(importData.data.paydaySettings);
 				db.insert(paydaySettings).values(convertedPaydaySettings).run();
 				importedCounts.paydaySettings = importData.data.paydaySettings.length;
+			}
+
+			if (importData.data.paymentMethods?.length > 0) {
+				db.insert(paymentMethods).values(importData.data.paymentMethods).run();
+				importedCounts.paymentMethods = importData.data.paymentMethods.length;
 			}
 
 			if (importData.data.bills?.length > 0) {
@@ -239,6 +252,7 @@ export const actions: Actions = {
 			db.delete(debts).run();
 			db.delete(debtStrategySettings).run();
 			db.delete(paydaySettings).run();
+			db.delete(paymentMethods).run();
 			db.delete(categories).run();
 			db.delete(userPreferences).run();
 

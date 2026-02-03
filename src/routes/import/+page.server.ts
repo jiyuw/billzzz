@@ -233,7 +233,8 @@ export const actions: Actions = {
 					dueDate,
 					categoryId,
 					isRecurring,
-					recurrenceType,
+					recurrenceInterval,
+					recurrenceUnit,
 					bucketId,
 					counterpartyAccountId,
 					transferCategoryId
@@ -259,10 +260,11 @@ export const actions: Actions = {
 
 					// If this is a recurring bill that was marked as paid, advance the due date
 					if (existingBill && isPaymentForCurrentCycle(transactionData.transaction.datePosted, existingBill.dueDate)) {
-						if (existingBill.isRecurring && existingBill.recurrenceType) {
+						if (existingBill.isRecurring && existingBill.recurrenceUnit && existingBill.recurrenceInterval) {
 							const nextDueDate = calculateNextDueDate(
 								existingBill.dueDate,
-								existingBill.recurrenceType as any,
+								existingBill.recurrenceInterval,
+								existingBill.recurrenceUnit as any,
 								existingBill.recurrenceDay
 							);
 
@@ -317,8 +319,9 @@ export const actions: Actions = {
 								dueDate: billDueDate,
 								categoryId: categoryId || null,
 								isRecurring: isRecurring || false,
-								recurrenceType: recurrenceType || null,
-								recurrenceDay: (isRecurring && (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly'))
+								recurrenceInterval: isRecurring ? (recurrenceInterval ? parseInt(recurrenceInterval) : 1) : null,
+								recurrenceUnit: isRecurring ? (recurrenceUnit || 'month') : null,
+								recurrenceDay: (isRecurring && (recurrenceUnit === 'month' || recurrenceUnit === 'year'))
 									? billDueDate.getDate()
 									: null,
 								isPaid: shouldMarkAsPaid,
@@ -359,17 +362,19 @@ export const actions: Actions = {
 						const billToUpdate = wasNewlyCreated
 							? {
 									isRecurring,
-									recurrenceType,
-									recurrenceDay: (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly')
+									recurrenceInterval: recurrenceInterval ? parseInt(recurrenceInterval) : 1,
+									recurrenceUnit: recurrenceUnit || 'month',
+									recurrenceDay: (recurrenceUnit === 'month' || recurrenceUnit === 'year')
 										? billDueDate.getDate()
 										: null
 								}
 							: existingBills.find(b => b.id === billIdToUse);
 
-						if (billToUpdate?.isRecurring && billToUpdate.recurrenceType) {
+						if (billToUpdate?.isRecurring && billToUpdate.recurrenceUnit && billToUpdate.recurrenceInterval) {
 							const nextDueDate = calculateNextDueDate(
 								billDueDate,
-								billToUpdate.recurrenceType as any,
+								billToUpdate.recurrenceInterval,
+								billToUpdate.recurrenceUnit as any,
 								billToUpdate.recurrenceDay || billDueDate.getDate()
 							);
 

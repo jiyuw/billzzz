@@ -1,27 +1,17 @@
-import type { RecurrenceType } from '$lib/types/bill';
+import type { RecurrenceUnit } from '$lib/types/bill';
 
 /**
  * Get a human-readable description of the recurrence pattern
  * This is a shared utility that can be used in both client and server code
  */
 export function getRecurrenceDescription(
-	recurrenceType: RecurrenceType,
+	recurrenceInterval: number,
+	recurrenceUnit: RecurrenceUnit,
 	recurrenceDay?: number | null
 ): string {
-	switch (recurrenceType) {
-		case 'weekly':
-			return 'Every week';
-		case 'biweekly':
-			return 'Every 2 weeks';
-		case 'bimonthly':
-			return recurrenceDay ? `Every 2 months on day ${recurrenceDay}` : 'Every 2 months';
-		case 'monthly':
-			return recurrenceDay ? `Monthly on day ${recurrenceDay}` : 'Every month';
-		case 'quarterly':
-			return recurrenceDay ? `Quarterly on day ${recurrenceDay}` : 'Every 3 months';
-		case 'yearly':
-			return 'Every year';
-		default:
-			return 'Unknown';
+	const unitLabel = recurrenceInterval === 1 ? recurrenceUnit : `${recurrenceUnit}s`;
+	if ((recurrenceUnit === 'month' || recurrenceUnit === 'year') && recurrenceDay) {
+		return `Every ${recurrenceInterval} ${unitLabel} on day ${recurrenceDay}`;
 	}
+	return `Every ${recurrenceInterval} ${unitLabel}`;
 }

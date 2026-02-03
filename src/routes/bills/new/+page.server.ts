@@ -1,12 +1,13 @@
 import type { PageServerLoad, Actions } from './$types';
-import { getAllCategories, createBill } from '$lib/server/db/queries';
+import { getAllCategories, createBill, getAllPaymentMethods } from '$lib/server/db/queries';
 import { redirect } from '@sveltejs/kit';
 import type { NewBill } from '$lib/server/db/schema';
 import { parseLocalDate } from '$lib/utils/dates';
 
 export const load: PageServerLoad = async () => {
 	const categories = getAllCategories();
-	return { categories };
+	const paymentMethods = getAllPaymentMethods();
+	return { categories, paymentMethods };
 };
 
 export const actions: Actions = {
@@ -31,11 +32,13 @@ export const actions: Actions = {
 			paymentLink: (data.paymentLink as string) || null,
 			categoryId: data.categoryId ? parseInt(data.categoryId as string) : null,
 			isRecurring: data.isRecurring === 'true',
-			recurrenceType: (data.recurrenceType as any) || null,
+			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval as string) : null,
+			recurrenceUnit: (data.recurrenceUnit as any) || null,
 			recurrenceDay: data.recurrenceDay ? parseInt(data.recurrenceDay as string) : null,
 			isPaid: false,
 			notes: (data.notes as string) || null,
-			isAutopay: false
+			isAutopay: data.isAutopay === 'true',
+			paymentMethodId: data.paymentMethodId ? parseInt(data.paymentMethodId as string) : null
 		};
 
 		createBill(newBill);

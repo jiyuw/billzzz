@@ -1,6 +1,6 @@
 import type { Bill, Category, BillCycle, BillPayment } from '$lib/server/db/schema';
 
-export type RecurrenceType = 'weekly' | 'biweekly' | 'bimonthly' | 'monthly' | 'quarterly' | 'yearly';
+export type RecurrenceUnit = 'day' | 'week' | 'month' | 'year';
 
 export type BillStatus = 'paid' | 'upcoming' | 'overdue';
 
@@ -50,9 +50,11 @@ export interface BillFormData {
 	paymentLink?: string;
 	categoryId?: number | null;
 	isRecurring: boolean;
-	recurrenceType?: RecurrenceType;
+	recurrenceInterval?: number;
+	recurrenceUnit?: RecurrenceUnit;
 	recurrenceDay?: number;
 	isAutopay: boolean;
+	paymentMethodId?: number | null;
 	isVariable?: boolean;
 	notes?: string;
 }

@@ -45,6 +45,9 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 			}
 		}
 
+		const parsedPaymentMethodId = data.paymentMethodId ? parseInt(data.paymentMethodId) : undefined;
+		const normalizedPaymentMethodId = Number.isNaN(parsedPaymentMethodId) ? undefined : parsedPaymentMethodId;
+
 		const updateData: any = {
 			name: data.name,
 			amount: data.amount ? parseFloat(data.amount) : undefined,
@@ -52,13 +55,23 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 			paymentLink: data.paymentLink,
 			categoryId: data.categoryId,
 			isRecurring: data.isRecurring,
-			recurrenceType: data.recurrenceType,
-			recurrenceDay: data.recurrenceDay,
+			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : undefined,
+			recurrenceUnit: data.recurrenceUnit,
+			recurrenceDay: data.recurrenceDay ? parseInt(data.recurrenceDay) : undefined,
 			isPaid: data.isPaid,
 			isAutopay: data.isAutopay,
+			paymentMethodId: normalizedPaymentMethodId,
 			isVariable: data.isVariable,
 			notes: data.notes
 		};
+		if (data.isRecurring === false) {
+			updateData.recurrenceInterval = null;
+			updateData.recurrenceUnit = null;
+			updateData.recurrenceDay = null;
+		}
+		if (data.isAutopay === false) {
+			updateData.paymentMethodId = null;
+		}
 
 		// Remove undefined values
 		Object.keys(updateData).forEach(
@@ -122,10 +135,11 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		}
 
 		// If marking as paid and bill is recurring, calculate next due date
-		if (isPaid && currentBill.isRecurring && currentBill.recurrenceType) {
+		if (isPaid && currentBill.isRecurring && currentBill.recurrenceUnit && currentBill.recurrenceInterval) {
 			const nextDueDate = calculateNextDueDate(
 				currentBill.dueDate,
-				currentBill.recurrenceType as any,
+				currentBill.recurrenceInterval,
+				currentBill.recurrenceUnit as any,
 				currentBill.recurrenceDay
 			);
 

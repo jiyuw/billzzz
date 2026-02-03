@@ -96,6 +96,9 @@ function initializeDatabase() {
 	const billColumns = sqlite.prepare("PRAGMA table_info(bills)").all() as Array<{ name: string }>;
 	const hasAutopay = billColumns.some(col => col.name === 'is_autopay');
 	const hasIsVariable = billColumns.some(col => col.name === 'is_variable');
+	const hasRecurrenceInterval = billColumns.some(col => col.name === 'recurrence_interval');
+	const hasRecurrenceUnit = billColumns.some(col => col.name === 'recurrence_unit');
+	const hasPaymentMethodId = billColumns.some(col => col.name === 'payment_method_id');
 
 	if (!hasAutopay) {
 		sqlite.exec('ALTER TABLE bills ADD COLUMN is_autopay INTEGER NOT NULL DEFAULT 0');
@@ -105,6 +108,73 @@ function initializeDatabase() {
 	if (!hasIsVariable) {
 		sqlite.exec('ALTER TABLE bills ADD COLUMN is_variable INTEGER NOT NULL DEFAULT 0');
 		console.log('Added is_variable column to bills table');
+	}
+
+	if (!hasRecurrenceInterval) {
+		sqlite.exec('ALTER TABLE bills ADD COLUMN recurrence_interval INTEGER');
+		console.log('Added recurrence_interval column to bills table');
+	}
+
+	if (!hasRecurrenceUnit) {
+		sqlite.exec('ALTER TABLE bills ADD COLUMN recurrence_unit TEXT');
+		console.log('Added recurrence_unit column to bills table');
+	}
+
+	if (!hasPaymentMethodId) {
+		sqlite.exec('ALTER TABLE bills ADD COLUMN payment_method_id INTEGER');
+		console.log('Added payment_method_id column to bills table');
+	}
+
+	const paymentMethodsTableExists = sqlite
+		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='payment_methods'")
+		.get() as { count: number };
+	if (paymentMethodsTableExists.count === 0) {
+		sqlite.exec(`
+			CREATE TABLE payment_methods (
+				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+				nickname TEXT NOT NULL,
+				last_four TEXT NOT NULL,
+				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+			)
+		`);
+		console.log('Created payment_methods table');
+	}
+
+	// Backfill recurrence interval/unit from legacy recurrence_type
+	try {
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'week', recurrence_interval = 1
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'weekly'
+		`);
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'week', recurrence_interval = 2
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'biweekly'
+		`);
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'month', recurrence_interval = 1
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'monthly'
+		`);
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'month', recurrence_interval = 2
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'bimonthly'
+		`);
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'month', recurrence_interval = 3
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'quarterly'
+		`);
+		sqlite.exec(`
+			UPDATE bills
+			SET recurrence_unit = 'year', recurrence_interval = 1
+			WHERE recurrence_unit IS NULL AND recurrence_type = 'yearly'
+		`);
+	} catch (error) {
+		console.error('Migration error while backfilling recurrence fields:', error);
 	}
 
 	// Check if payment_allocation_strategy column exists in debts table

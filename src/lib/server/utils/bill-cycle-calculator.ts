@@ -1,10 +1,9 @@
-import type { RecurrenceType } from '$lib/types/bill';
+import type { RecurrenceUnit } from '$lib/types/bill';
 import type { Bill } from '../db/schema';
 import {
 	addDays,
 	addWeeks,
 	addMonths,
-	addQuarters,
 	addYears,
 	startOfDay,
 	endOfDay,
@@ -22,7 +21,7 @@ export function calculateBillCycleDates(
 	referenceDate: Date = new Date()
 ): { startDate: Date; endDate: Date } {
 	// For non-recurring bills, create a single cycle
-	if (!bill.isRecurring || !bill.recurrenceType) {
+	if (!bill.isRecurring || !bill.recurrenceUnit || !bill.recurrenceInterval) {
 		return {
 			startDate: startOfDay(bill.createdAt),
 			endDate: endOfDay(bill.dueDate)
@@ -35,16 +34,16 @@ export function calculateBillCycleDates(
 	let cycleStart = dueDate;
 
 	// Move forward from due date to find the cycle containing the reference date
-	while (isBefore(getCycleEnd(bill.recurrenceType, cycleStart), ref)) {
-		cycleStart = getNextCycleStart(bill.recurrenceType, cycleStart);
+	while (isBefore(getCycleEnd(bill.recurrenceUnit, bill.recurrenceInterval, cycleStart), ref)) {
+		cycleStart = getNextCycleStart(bill.recurrenceUnit, bill.recurrenceInterval, cycleStart);
 	}
 
 	// Move backward if we've gone too far
 	while (isAfter(cycleStart, ref)) {
-		cycleStart = getPreviousCycleStart(bill.recurrenceType, cycleStart);
+		cycleStart = getPreviousCycleStart(bill.recurrenceUnit, bill.recurrenceInterval, cycleStart);
 	}
 
-	const cycleEnd = getCycleEnd(bill.recurrenceType, cycleStart);
+	const cycleEnd = getCycleEnd(bill.recurrenceUnit, bill.recurrenceInterval, cycleStart);
 
 	return {
 		startDate: cycleStart,
@@ -55,27 +54,21 @@ export function calculateBillCycleDates(
 /**
  * Get the end date of a cycle given its start date
  */
-function getCycleEnd(recurrenceType: RecurrenceType, cycleStart: Date): Date {
+function getCycleEnd(recurrenceUnit: RecurrenceUnit, recurrenceInterval: number, cycleStart: Date): Date {
 	let end: Date;
 
-	switch (recurrenceType) {
-		case 'weekly':
-			end = addWeeks(cycleStart, 1);
+	switch (recurrenceUnit) {
+		case 'day':
+			end = addDays(cycleStart, recurrenceInterval);
 			break;
-		case 'biweekly':
-			end = addWeeks(cycleStart, 2);
+		case 'week':
+			end = addWeeks(cycleStart, recurrenceInterval);
 			break;
-		case 'bimonthly':
-			end = addMonths(cycleStart, 2);
+		case 'month':
+			end = addMonths(cycleStart, recurrenceInterval);
 			break;
-		case 'monthly':
-			end = addMonths(cycleStart, 1);
-			break;
-		case 'quarterly':
-			end = addQuarters(cycleStart, 1);
-			break;
-		case 'yearly':
-			end = addYears(cycleStart, 1);
+		case 'year':
+			end = addYears(cycleStart, recurrenceInterval);
 			break;
 	}
 
@@ -86,40 +79,32 @@ function getCycleEnd(recurrenceType: RecurrenceType, cycleStart: Date): Date {
 /**
  * Get the start date of the next cycle
  */
-function getNextCycleStart(recurrenceType: RecurrenceType, currentStart: Date): Date {
-	switch (recurrenceType) {
-		case 'weekly':
-			return addWeeks(currentStart, 1);
-		case 'biweekly':
-			return addWeeks(currentStart, 2);
-		case 'bimonthly':
-			return addMonths(currentStart, 2);
-		case 'monthly':
-			return addMonths(currentStart, 1);
-		case 'quarterly':
-			return addQuarters(currentStart, 1);
-		case 'yearly':
-			return addYears(currentStart, 1);
+function getNextCycleStart(recurrenceUnit: RecurrenceUnit, recurrenceInterval: number, currentStart: Date): Date {
+	switch (recurrenceUnit) {
+		case 'day':
+			return addDays(currentStart, recurrenceInterval);
+		case 'week':
+			return addWeeks(currentStart, recurrenceInterval);
+		case 'month':
+			return addMonths(currentStart, recurrenceInterval);
+		case 'year':
+			return addYears(currentStart, recurrenceInterval);
 	}
 }
 
 /**
  * Get the start date of the previous cycle
  */
-function getPreviousCycleStart(recurrenceType: RecurrenceType, currentStart: Date): Date {
-	switch (recurrenceType) {
-		case 'weekly':
-			return addWeeks(currentStart, -1);
-		case 'biweekly':
-			return addWeeks(currentStart, -2);
-		case 'bimonthly':
-			return addMonths(currentStart, -2);
-		case 'monthly':
-			return addMonths(currentStart, -1);
-		case 'quarterly':
-			return addQuarters(currentStart, -1);
-		case 'yearly':
-			return addYears(currentStart, -1);
+function getPreviousCycleStart(recurrenceUnit: RecurrenceUnit, recurrenceInterval: number, currentStart: Date): Date {
+	switch (recurrenceUnit) {
+		case 'day':
+			return addDays(currentStart, -recurrenceInterval);
+		case 'week':
+			return addWeeks(currentStart, -recurrenceInterval);
+		case 'month':
+			return addMonths(currentStart, -recurrenceInterval);
+		case 'year':
+			return addYears(currentStart, -recurrenceInterval);
 	}
 }
 
@@ -142,7 +127,7 @@ export function generateBillCyclesBetween(
 	endDate: Date
 ): Array<{ startDate: Date; endDate: Date }> {
 	// For non-recurring bills, return single cycle
-	if (!bill.isRecurring || !bill.recurrenceType) {
+	if (!bill.isRecurring || !bill.recurrenceUnit || !bill.recurrenceInterval) {
 		return [{
 			startDate: startOfDay(bill.createdAt),
 			endDate: endOfDay(bill.dueDate)
@@ -156,7 +141,7 @@ export function generateBillCyclesBetween(
 		cycles.push({ ...currentCycle });
 		currentCycle = calculateBillCycleDates(
 			bill,
-			getNextCycleStart(bill.recurrenceType!, currentCycle.startDate)
+			getNextCycleStart(bill.recurrenceUnit!, bill.recurrenceInterval!, currentCycle.startDate)
 		);
 	}
 

@@ -11,6 +11,8 @@
 	import CategoryFormModal from '$lib/components/settings/CategoryFormModal.svelte';
 	import AccountsSection from '$lib/components/settings/AccountsSection.svelte';
 	import AccountFormModal from '$lib/components/settings/AccountFormModal.svelte';
+	import PaymentMethodsSection from '$lib/components/settings/PaymentMethodsSection.svelte';
+	import PaymentMethodFormModal from '$lib/components/settings/PaymentMethodFormModal.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import {
 		ShoppingCart,
@@ -33,10 +35,13 @@
 	let showEditCategoryModal = $state(false);
 	let showAddAccountModal = $state(false);
 	let showEditAccountModal = $state(false);
+	let showAddPaymentMethodModal = $state(false);
+	let showEditPaymentMethodModal = $state(false);
 	let showPaydaySettingsModal = $state(false);
 	let showResetModal = $state(false);
 	let editingCategoryId = $state<number | null>(null);
 	let editingAccountId = $state<number | null>(null);
+	let editingPaymentMethodId = $state<number | null>(null);
 	let categoryForm = $state({
 		name: '',
 		color: '#3B82F6',
@@ -45,6 +50,10 @@
 	let accountForm = $state({
 		name: '',
 		isExternal: false
+	});
+	let paymentMethodForm = $state({
+		nickname: '',
+		lastFour: ''
 	});
 
 	// Icon options for categories (same as buckets)
@@ -203,12 +212,92 @@
 		}
 	}
 
+	async function handleAddPaymentMethod() {
+		if (!paymentMethodForm.nickname.trim() || !paymentMethodForm.lastFour.trim()) {
+			alert('Please enter a nickname and last 4 digits');
+			return;
+		}
+
+		try {
+			const response = await fetch('/api/payment-methods', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(paymentMethodForm)
+			});
+
+			if (response.ok) {
+				showAddPaymentMethodModal = false;
+				await invalidateAll();
+			} else {
+				alert('Failed to create payment method. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error creating payment method:', error);
+			alert('Failed to create payment method. Please try again.');
+		}
+	}
+
+	async function handleUpdatePaymentMethod() {
+		if (!paymentMethodForm.nickname.trim() || !paymentMethodForm.lastFour.trim() || editingPaymentMethodId === null) {
+			alert('Please enter a nickname and last 4 digits');
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/payment-methods/${editingPaymentMethodId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(paymentMethodForm)
+			});
+
+			if (response.ok) {
+				showEditPaymentMethodModal = false;
+				editingPaymentMethodId = null;
+				await invalidateAll();
+			} else {
+				alert('Failed to update payment method. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error updating payment method:', error);
+			alert('Failed to update payment method. Please try again.');
+		}
+	}
+
+	async function handleDeletePaymentMethod(id: number, nickname: string) {
+		if (!confirm(`Are you sure you want to delete "${nickname}"?`)) {
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/payment-methods/${id}`, {
+				method: 'DELETE'
+			});
+
+			if (response.ok) {
+				await invalidateAll();
+			} else {
+				alert('Failed to delete payment method. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error deleting payment method:', error);
+			alert('Failed to delete payment method. Please try again.');
+		}
+	}
+
 	function openAddAccountModal() {
 		accountForm = {
 			name: '',
 			isExternal: false
 		};
 		showAddAccountModal = true;
+	}
+
+	function openAddPaymentMethodModal() {
+		paymentMethodForm = {
+			nickname: '',
+			lastFour: ''
+		};
+		showAddPaymentMethodModal = true;
 	}
 
 	function openEditAccountModal(id: number) {
@@ -220,6 +309,18 @@
 			};
 			editingAccountId = id;
 			showEditAccountModal = true;
+		}
+	}
+
+	function openEditPaymentMethodModal(id: number) {
+		const method = data.paymentMethods.find((m) => m.id === id);
+		if (method) {
+			paymentMethodForm = {
+				nickname: method.nickname,
+				lastFour: method.lastFour
+			};
+			editingPaymentMethodId = id;
+			showEditPaymentMethodModal = true;
 		}
 	}
 
@@ -345,6 +446,13 @@
 		onDelete={handleDeleteAccount}
 	/>
 
+	<PaymentMethodsSection
+		paymentMethods={data.paymentMethods}
+		onAdd={openAddPaymentMethodModal}
+		onEdit={openEditPaymentMethodModal}
+		onDelete={handleDeletePaymentMethod}
+	/>
+
 	<ExportImportSection onExport={handleExport} />
 
 	<ResetDataSection onReset={() => (showResetModal = true)} />
@@ -391,6 +499,27 @@
 	onCancel={() => {
 		showEditAccountModal = false;
 		editingAccountId = null;
+	}}
+/>
+
+<!-- Add Payment Method Modal -->
+<PaymentMethodFormModal
+	bind:isOpen={showAddPaymentMethodModal}
+	mode="add"
+	bind:paymentMethodForm
+	onSubmit={handleAddPaymentMethod}
+	onCancel={() => (showAddPaymentMethodModal = false)}
+/>
+
+<!-- Edit Payment Method Modal -->
+<PaymentMethodFormModal
+	bind:isOpen={showEditPaymentMethodModal}
+	mode="edit"
+	bind:paymentMethodForm
+	onSubmit={handleUpdatePaymentMethod}
+	onCancel={() => {
+		showEditPaymentMethodModal = false;
+		editingPaymentMethodId = null;
 	}}
 />
 
