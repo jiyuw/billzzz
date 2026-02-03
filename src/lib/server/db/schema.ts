@@ -20,11 +20,12 @@ export const bills = sqliteTable('bills', {
 	categoryId: integer('category_id').references(() => categories.id, { onDelete: 'set null' }),
 	isRecurring: integer('is_recurring', { mode: 'boolean' }).notNull().default(false),
 	recurrenceType: text('recurrence_type', {
-		enum: ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly']
+		enum: ['weekly', 'biweekly', 'bimonthly', 'monthly', 'quarterly', 'yearly']
 	}),
 	recurrenceDay: integer('recurrence_day'),
 	isPaid: integer('is_paid', { mode: 'boolean' }).notNull().default(false),
 	isAutopay: integer('is_autopay', { mode: 'boolean' }).notNull().default(false),
+	isVariable: integer('is_variable', { mode: 'boolean' }).notNull().default(false),
 	notes: text('notes'),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()

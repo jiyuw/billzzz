@@ -114,14 +114,14 @@
 		}
 	}
 
-	async function handleConfirmPayment(amount: number) {
+	async function handleConfirmPayment(amount: number, paymentDate: string) {
 		if (payingBillId === null) return;
 
 		try {
 			const response = await fetch(`/api/bills/${payingBillId}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ isPaid: true, paymentAmount: amount })
+				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate })
 			});
 
 			if (response.ok) {
@@ -581,6 +581,7 @@
 				recurrenceType: editingBill.recurrenceType || undefined,
 				recurrenceDay: editingBill.recurrenceDay || undefined,
 				isAutopay: editingBill.isAutopay,
+				isVariable: editingBill.isVariable,
 				notes: editingBill.notes || undefined
 			}}
 			onSubmit={handleUpdateBill}

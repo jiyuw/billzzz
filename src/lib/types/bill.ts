@@ -1,6 +1,6 @@
 import type { Bill, Category, BillCycle, BillPayment } from '$lib/server/db/schema';
 
-export type RecurrenceType = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
+export type RecurrenceType = 'weekly' | 'biweekly' | 'bimonthly' | 'monthly' | 'quarterly' | 'yearly';
 
 export type BillStatus = 'paid' | 'upcoming' | 'overdue';
 
@@ -15,9 +15,18 @@ export interface BillCycleWithComputed extends BillCycle {
 	percentPaid: number;
 }
 
+export interface BillUsageStats {
+	count: number;
+	average: number;
+	min: number;
+	max: number;
+	lastAmount: number;
+}
+
 // Bill with current cycle information
 export interface BillWithCycle extends Bill {
 	currentCycle?: BillCycleWithComputed | null;
+	usageStats?: BillUsageStats | null;
 }
 
 // Filter options for bills list
@@ -44,6 +53,7 @@ export interface BillFormData {
 	recurrenceType?: RecurrenceType;
 	recurrenceDay?: number;
 	isAutopay: boolean;
+	isVariable?: boolean;
 	notes?: string;
 }
 

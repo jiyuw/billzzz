@@ -95,10 +95,16 @@ function initializeDatabase() {
 	// Check if is_autopay column exists, if not add it
 	const billColumns = sqlite.prepare("PRAGMA table_info(bills)").all() as Array<{ name: string }>;
 	const hasAutopay = billColumns.some(col => col.name === 'is_autopay');
+	const hasIsVariable = billColumns.some(col => col.name === 'is_variable');
 
 	if (!hasAutopay) {
 		sqlite.exec('ALTER TABLE bills ADD COLUMN is_autopay INTEGER NOT NULL DEFAULT 0');
 		console.log('Added is_autopay column to bills table');
+	}
+
+	if (!hasIsVariable) {
+		sqlite.exec('ALTER TABLE bills ADD COLUMN is_variable INTEGER NOT NULL DEFAULT 0');
+		console.log('Added is_variable column to bills table');
 	}
 
 	// Check if payment_allocation_strategy column exists in debts table

@@ -40,7 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const data = await request.json();
 
 		// Validate required fields
-		if (!data.name || !data.amount || !data.dueDate) {
+		if (!data.name || (!data.isVariable && !data.amount) || !data.dueDate) {
 			return json({ error: 'Missing required fields' }, { status: 400 });
 		}
 
@@ -61,7 +61,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const newBill: NewBill = {
 			name: data.name,
-			amount: parseFloat(data.amount),
+			amount: data.isVariable ? 0 : parseFloat(data.amount),
 			dueDate,
 			paymentLink: data.paymentLink || null,
 			categoryId: data.categoryId || null,
@@ -70,6 +70,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			recurrenceDay: data.recurrenceDay || null,
 			isPaid: data.isPaid || false,
 			isAutopay: data.isAutopay || false,
+			isVariable: data.isVariable || false,
 			notes: data.notes || null
 		};
 

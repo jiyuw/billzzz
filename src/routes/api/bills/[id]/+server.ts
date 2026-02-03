@@ -56,6 +56,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 			recurrenceDay: data.recurrenceDay,
 			isPaid: data.isPaid,
 			isAutopay: data.isAutopay,
+			isVariable: data.isVariable,
 			notes: data.notes
 		};
 
@@ -98,7 +99,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	try {
 		const id = parseInt(params.id);
-		const { isPaid, paymentAmount } = await request.json();
+		const { isPaid, paymentAmount, paymentDate } = await request.json();
 
 		const currentBill = getBillById(id);
 		if (!currentBill) {
@@ -111,10 +112,11 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 			const note = amountPaid !== currentBill.amount
 				? `Payment recorded. Original amount: $${currentBill.amount.toFixed(2)}`
 				: 'Payment recorded';
+			const parsedPaymentDate = paymentDate ? parseLocalDate(paymentDate) : new Date();
 			await createPayment({
 				billId: id,
 				amount: amountPaid,
-				paymentDate: new Date(),
+				paymentDate: parsedPaymentDate,
 				notes: note
 			});
 		}

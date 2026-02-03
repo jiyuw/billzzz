@@ -13,6 +13,8 @@ export function getRecurrenceDescription(
 			return 'Every week';
 		case 'biweekly':
 			return 'Every 2 weeks';
+		case 'bimonthly':
+			return recurrenceDay ? `Every 2 months on day ${recurrenceDay}` : 'Every 2 months';
 		case 'monthly':
 			return recurrenceDay ? `Monthly on day ${recurrenceDay}` : 'Every month';
 		case 'quarterly':

@@ -89,6 +89,9 @@ async function calculateMonthlyObligations() {
 			case 'biweekly':
 				monthlyBills += bill.amount * 2.17; // Average bi-weeks per month
 				break;
+			case 'bimonthly':
+				monthlyBills += bill.amount / 2;
+				break;
 			case 'monthly':
 				monthlyBills += bill.amount;
 				break;
@@ -232,6 +235,9 @@ async function projectCashFlow(
 					case 'biweekly':
 						nextOccurrence = addWeeks(nextOccurrence, 2);
 						break;
+					case 'bimonthly':
+						nextOccurrence = addMonths(nextOccurrence, 2);
+						break;
 					case 'monthly':
 						nextOccurrence = addMonths(nextOccurrence, 1);
 						break;
@@ -259,6 +265,9 @@ async function projectCashFlow(
 						break;
 					case 'biweekly':
 						nextOccurrence = addWeeks(nextOccurrence, 2);
+						break;
+					case 'bimonthly':
+						nextOccurrence = addMonths(nextOccurrence, 2);
 						break;
 					case 'monthly':
 						nextOccurrence = addMonths(nextOccurrence, 1);

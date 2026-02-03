@@ -6,7 +6,7 @@
 	interface Props {
 		isOpen: boolean;
 		bill: BillWithCategory | null;
-		onConfirm: (amount: number) => Promise<void>;
+		onConfirm: (amount: number, paymentDate: string) => Promise<void>;
 		onCancel: () => void;
 	}
 
@@ -14,11 +14,17 @@
 
 	let amount = $state(0);
 	let isSubmitting = $state(false);
+	let paymentDate = $state('');
 
 	// Update amount when bill changes
 	$effect(() => {
 		if (bill) {
 			amount = bill.amount;
+			const today = new Date();
+			const year = today.getFullYear();
+			const month = String(today.getMonth() + 1).padStart(2, '0');
+			const day = String(today.getDate()).padStart(2, '0');
+			paymentDate = `${year}-${month}-${day}`;
 		}
 	});
 
@@ -27,7 +33,7 @@
 		isSubmitting = true;
 
 		try {
-			await onConfirm(parseFloat(amount.toString()));
+			await onConfirm(parseFloat(amount.toString()), paymentDate);
 		} finally {
 			isSubmitting = false;
 		}
@@ -63,6 +69,19 @@
 				<p class="mt-1 text-xs text-gray-500">
 					Original bill amount: ${bill.amount.toFixed(2)}
 				</p>
+			</div>
+
+			<div>
+				<label for="paymentDate" class="block text-sm font-medium text-gray-700 mb-1">
+					Payment Date <span class="text-red-500">*</span>
+				</label>
+				<input
+					type="date"
+					id="paymentDate"
+					bind:value={paymentDate}
+					required
+					class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+				/>
 			</div>
 
 			<!-- Actions -->

@@ -16,6 +16,7 @@
 			recurrenceType?: RecurrenceType | null;
 			recurrenceDay?: number | null;
 			isAutopay?: boolean;
+			isVariable?: boolean;
 			notes?: string;
 		};
 		onSubmit: (data: any) => Promise<void>;
@@ -40,6 +41,7 @@
 	let recurrenceType = $state<RecurrenceType | null>('monthly');
 	let recurrenceDay = $state<number | null>(null);
 	let isAutopay = $state(false);
+	let isVariable = $state(false);
 	let notes = $state('');
 	let isSubmitting = $state(false);
 
@@ -54,6 +56,7 @@
 		recurrenceType = initialData?.recurrenceType || 'monthly';
 		recurrenceDay = initialData?.recurrenceDay || null;
 		isAutopay = initialData?.isAutopay || false;
+		isVariable = initialData?.isVariable || false;
 		notes = initialData?.notes || '';
 	});
 
@@ -68,14 +71,15 @@
 
 			await onSubmit({
 				name,
-				amount: parseFloat(amount.toString()),
+				amount: isVariable ? 0 : parseFloat(amount.toString()),
 				dueDate: localDate,
 				paymentLink: paymentLink || null,
 				categoryId,
 				isRecurring,
 				recurrenceType: isRecurring ? recurrenceType : null,
-				recurrenceDay: isRecurring && (recurrenceType === 'monthly' || recurrenceType === 'quarterly') ? recurrenceDay : null,
+				recurrenceDay: isRecurring && (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly') ? recurrenceDay : null,
 				isAutopay,
+				isVariable,
 				notes: notes || null
 			});
 		} finally {
@@ -113,13 +117,32 @@
 				type="number"
 				id="amount"
 				bind:value={amount}
-				required
+				required={!isVariable}
+				disabled={isVariable}
 				min="0"
 				step="0.01"
-				class="block w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 pl-7 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+				class="block w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 pl-7 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 dark:disabled:bg-gray-800"
 				placeholder="0.00"
 			/>
 		</div>
+		{#if isVariable}
+			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+				Variable bills use past payments to show usage stats.
+			</p>
+		{/if}
+	</div>
+
+	<!-- Variable Amount -->
+	<div class="flex items-center">
+		<input
+			type="checkbox"
+			id="isVariable"
+			bind:checked={isVariable}
+			class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
+		/>
+		<label for="isVariable" class="ml-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+			This bill has a variable amount (usage-based)
+		</label>
 	</div>
 
 	<!-- Due Date -->
@@ -207,13 +230,14 @@
 					>
 						<option value="weekly">Weekly</option>
 						<option value="biweekly">Every 2 Weeks</option>
+						<option value="bimonthly">Every 2 Months</option>
 						<option value="monthly">Monthly</option>
 						<option value="quarterly">Quarterly</option>
 						<option value="yearly">Yearly</option>
 					</select>
 				</div>
 
-				{#if recurrenceType === 'monthly' || recurrenceType === 'quarterly'}
+				{#if recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly'}
 					<div>
 						<label for="recurrenceDay" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
 							Day of Month

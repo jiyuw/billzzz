@@ -318,7 +318,9 @@ export const actions: Actions = {
 								categoryId: categoryId || null,
 								isRecurring: isRecurring || false,
 								recurrenceType: recurrenceType || null,
-								recurrenceDay: (isRecurring && recurrenceType === 'monthly') ? billDueDate.getDate() : null,
+								recurrenceDay: (isRecurring && (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly'))
+									? billDueDate.getDate()
+									: null,
 								isPaid: shouldMarkAsPaid,
 								isAutopay: false,
 								notes: null,
@@ -355,7 +357,13 @@ export const actions: Actions = {
 						// For newly created bills, use the values from the form
 						// For existing bills, we need to check if they are recurring
 						const billToUpdate = wasNewlyCreated
-							? { isRecurring, recurrenceType, recurrenceDay: billDueDate.getDate() }
+							? {
+									isRecurring,
+									recurrenceType,
+									recurrenceDay: (recurrenceType === 'monthly' || recurrenceType === 'bimonthly' || recurrenceType === 'quarterly')
+										? billDueDate.getDate()
+										: null
+								}
 							: existingBills.find(b => b.id === billIdToUse);
 
 						if (billToUpdate?.isRecurring && billToUpdate.recurrenceType) {

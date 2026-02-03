@@ -7,7 +7,7 @@ import type {
 	BillPayment,
 	NewBillPayment
 } from './schema';
-import type { BillWithCycle, BillCycleWithComputed } from '$lib/types/bill';
+import type { BillWithCycle, BillCycleWithComputed, BillUsageStats } from '$lib/types/bill';
 import { eq, and, desc, asc, sql } from 'drizzle-orm';
 import {
 	calculateBillCycleDates,
@@ -29,9 +29,12 @@ export async function getBillWithCurrentCycle(id: number): Promise<BillWithCycle
 
 	const currentCycle = await getCurrentCycle(bill.id);
 
+	const usageStats = bill.isVariable ? await getBillUsageStats(bill.id) : null;
+
 	return {
 		...bill,
-		currentCycle: currentCycle ? addComputedFields(currentCycle) : null
+		currentCycle: currentCycle ? addComputedFields(currentCycle) : null,
+		usageStats
 	};
 }
 
@@ -46,15 +49,51 @@ export async function getAllBillsWithCurrentCycle(): Promise<BillWithCycle[]> {
 		allBills.map(async (bill) => {
 			await ensureCyclesExist(bill);
 			const currentCycle = await getCurrentCycle(bill.id);
+			const usageStats = bill.isVariable ? await getBillUsageStats(bill.id) : null;
 
 			return {
 				...bill,
-				currentCycle: currentCycle ? addComputedFields(currentCycle) : null
+				currentCycle: currentCycle ? addComputedFields(currentCycle) : null,
+				usageStats
 			};
 		})
 	);
 
 	return billsWithCycles;
+}
+
+async function getBillUsageStats(billId: number, windowSize = 6): Promise<BillUsageStats | null> {
+	const cycles = await db
+		.select({
+			totalPaid: billCycles.totalPaid,
+			endDate: billCycles.endDate
+		})
+		.from(billCycles)
+		.where(
+			and(
+				eq(billCycles.billId, billId),
+				sql`${billCycles.totalPaid} > 0`
+			)
+		)
+		.orderBy(desc(billCycles.endDate))
+		.limit(windowSize);
+
+	if (cycles.length === 0) return null;
+
+	const amounts = cycles.map((cycle) => cycle.totalPaid);
+	const total = amounts.reduce((sum, amount) => sum + amount, 0);
+	const average = total / amounts.length;
+	const min = Math.min(...amounts);
+	const max = Math.max(...amounts);
+	const lastAmount = amounts[0];
+
+	return {
+		count: amounts.length,
+		average,
+		min,
+		max,
+		lastAmount
+	};
 }
 
 /**

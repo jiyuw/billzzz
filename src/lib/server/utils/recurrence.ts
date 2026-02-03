@@ -26,6 +26,17 @@ export function calculateNextDueDate(
 			nextDate = addWeeks(currentDueDate, 2);
 			break;
 
+		case 'bimonthly':
+			if (recurrenceDay) {
+				nextDate = addMonths(currentDueDate, 2);
+				const daysInMonth = getDaysInMonth(nextDate);
+				const dayToSet = Math.min(recurrenceDay, daysInMonth);
+				nextDate = setDate(nextDate, dayToSet);
+			} else {
+				nextDate = addMonths(currentDueDate, 2);
+			}
+			break;
+
 		case 'monthly':
 			// If a specific day is set, use that day; otherwise increment by month
 			if (recurrenceDay) {

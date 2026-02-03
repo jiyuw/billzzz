@@ -65,6 +65,9 @@ function getCycleEnd(recurrenceType: RecurrenceType, cycleStart: Date): Date {
 		case 'biweekly':
 			end = addWeeks(cycleStart, 2);
 			break;
+		case 'bimonthly':
+			end = addMonths(cycleStart, 2);
+			break;
 		case 'monthly':
 			end = addMonths(cycleStart, 1);
 			break;
@@ -89,6 +92,8 @@ function getNextCycleStart(recurrenceType: RecurrenceType, currentStart: Date): 
 			return addWeeks(currentStart, 1);
 		case 'biweekly':
 			return addWeeks(currentStart, 2);
+		case 'bimonthly':
+			return addMonths(currentStart, 2);
 		case 'monthly':
 			return addMonths(currentStart, 1);
 		case 'quarterly':
@@ -107,6 +112,8 @@ function getPreviousCycleStart(recurrenceType: RecurrenceType, currentStart: Dat
 			return addWeeks(currentStart, -1);
 		case 'biweekly':
 			return addWeeks(currentStart, -2);
+		case 'bimonthly':
+			return addMonths(currentStart, -2);
 		case 'monthly':
 			return addMonths(currentStart, -1);
 		case 'quarterly':

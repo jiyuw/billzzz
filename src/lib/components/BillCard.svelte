@@ -5,6 +5,7 @@
 	import { format } from 'date-fns';
 	import { getRecurrenceDescription } from '$lib/utils/recurrence';
 	import { goto } from '$app/navigation';
+	import { formatCurrency } from '$lib/utils/format';
 
 	interface Props {
 		bill: BillWithCategory | BillWithCycle;
@@ -18,6 +19,32 @@
 	// Check if bill has cycle info
 	const billWithCycle = $derived('currentCycle' in bill ? bill as BillWithCycle : null);
 	const currentCycle = $derived(billWithCycle?.currentCycle);
+	const usageStats = $derived(billWithCycle?.usageStats ?? null);
+	const hasCurrentPayments = $derived((currentCycle?.totalPaid ?? 0) > 0);
+	const isCyclePaid = $derived.by(() => {
+		if (!currentCycle) return false;
+		if (currentCycle.expectedAmount > 0) {
+			return currentCycle.isPaid || currentCycle.totalPaid >= currentCycle.expectedAmount;
+		}
+		return currentCycle.totalPaid > 0;
+	});
+	const usageDensity = $derived.by(() => {
+		if (!usageStats) return 0;
+		if (usageStats.max === usageStats.min) return 100;
+		return Math.min(
+			Math.max(((usageStats.average - usageStats.min) / (usageStats.max - usageStats.min)) * 100, 0),
+			100
+		);
+	});
+	const currentPaid = $derived(currentCycle?.totalPaid ?? 0);
+	const usageDotPosition = $derived.by(() => {
+		if (!usageStats) return 0;
+		if (usageStats.max === usageStats.min) return 50;
+		return Math.min(
+			Math.max(((currentPaid - usageStats.min) / (usageStats.max - usageStats.min)) * 100, 0),
+			100
+		);
+	});
 
 	function handleCardClick(e: MouseEvent | KeyboardEvent) {
 		// Don't navigate if clicking on a button
@@ -99,8 +126,15 @@
 
 		<div class="grid grid-cols-2 gap-3 text-sm">
 			<div>
-				<span class="text-gray-500 dark:text-gray-400">Amount:</span>
-				<span class="ml-2 font-semibold text-gray-900 dark:text-gray-100">${bill.amount.toFixed(2)}</span>
+				{#if bill.isVariable}
+					<span class="text-gray-500 dark:text-gray-400">Amount:</span>
+					<span class="ml-2 font-semibold text-gray-900 dark:text-gray-100">Variable</span>
+				{:else}
+					<span class="text-gray-500 dark:text-gray-400">Amount:</span>
+					<span class="ml-2 font-semibold text-gray-900 dark:text-gray-100">
+						{formatCurrency(bill.amount)}
+					</span>
+				{/if}
 			</div>
 			<div>
 				<span class="text-gray-500 dark:text-gray-400">Due:</span>
@@ -113,7 +147,33 @@
 		{/if}
 
 		<!-- Cycle Progress (if available) -->
-		{#if currentCycle}
+		{#if bill.isVariable}
+			<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+				<div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+					<span>Current Cycle</span>
+					<span>{hasCurrentPayments ? `${formatCurrency(currentPaid)} paid` : 'Unpaid'}</span>
+				</div>
+				<div class="relative w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+					{#if hasCurrentPayments}
+						<div
+							class="h-2 rounded-full transition-all bg-green-200"
+							style="width: {usageStats ? usageDensity : 0}%"
+						></div>
+						{#if usageStats}
+							<div
+								class="absolute top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-green-500 ring-2 ring-white shadow-sm"
+								style="left: {usageDotPosition}%"
+								aria-hidden="true"
+							></div>
+						{/if}
+					{/if}
+				</div>
+				<div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
+					<span>{usageStats ? `Min: ${formatCurrency(usageStats.min)}` : 'Min: —'}</span>
+					<span>{usageStats ? `Max: ${formatCurrency(usageStats.max)}` : 'Max: —'}</span>
+				</div>
+			</div>
+		{:else if currentCycle}
 			<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
 				<div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
 					<span>Current Cycle</span>
@@ -141,20 +201,24 @@
 	<div class="flex items-center justify-end gap-1 border-t border-gray-100 bg-gray-50 px-3 py-2 dark:border-gray-700 dark:bg-gray-900">
 		<button
 			onclick={handleTogglePaid}
-			class="rounded-md p-3 min-h-11 min-w-11 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-			title={bill.isPaid ? 'Mark as unpaid' : 'Mark as paid'}
+			class="rounded-md p-2 min-h-9 min-w-9 transition-colors text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+			title={isCyclePaid ? 'Paid' : 'Mark as paid'}
 		>
-			{#if bill.isPaid}
+			{#if isCyclePaid}
 				<svg
-					class="h-5 w-5 text-green-600"
-					fill="currentColor"
+					class="h-5 w-5"
 					viewBox="0 0 20 20"
 					xmlns="http://www.w3.org/2000/svg"
+					aria-hidden="true"
 				>
+					<circle cx="10" cy="10" r="8" fill="#16a34a" />
 					<path
-						fill-rule="evenodd"
-						d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-						clip-rule="evenodd"
+						d="M6.5 10.5l2 2 5-5"
+						fill="none"
+						stroke="#ffffff"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
 					/>
 				</svg>
 			{:else}
@@ -202,7 +266,7 @@
 
 		<button
 			onclick={handleEdit}
-			class="rounded-md p-3 min-h-11 min-w-11 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+			class="rounded-md p-2 min-h-9 min-w-9 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400"
 			title="Edit bill"
 		>
 			<svg
@@ -223,7 +287,7 @@
 
 		<button
 			onclick={handleDelete}
-			class="rounded-md p-3 min-h-11 min-w-11 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-400"
+			class="rounded-md p-2 min-h-9 min-w-9 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-gray-400 dark:hover:bg-red-950 dark:hover:text-red-400"
 			title="Delete bill"
 		>
 			<svg
