@@ -5,6 +5,7 @@
 	type PaymentMethodForm = {
 		nickname: string;
 		lastFour: string;
+		type: 'credit_card' | 'checking' | 'savings';
 	};
 
 	let {
@@ -62,13 +63,35 @@
 				type="text"
 				inputmode="numeric"
 				maxlength="4"
-				pattern="\\d{4}"
 				bind:value={paymentMethodForm.lastFour}
+				oninput={(e) => {
+					const input = e.currentTarget as HTMLInputElement;
+					input.value = input.value.replace(/\D/g, '').slice(0, 4);
+					paymentMethodForm.lastFour = input.value;
+				}}
 				required
 				placeholder="1234"
 				class="mt-1 block w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder-gray-400 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
 			/>
 			<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Enter the last 4 digits only.</p>
+		</div>
+
+		<div>
+			<label
+				for="{mode}-payment-type"
+				class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+			>
+				Type
+			</label>
+			<select
+				id="{mode}-payment-type"
+				bind:value={paymentMethodForm.type}
+				class="mt-1 block w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+			>
+				<option value="credit_card">Credit Card</option>
+				<option value="checking">Checking Account</option>
+				<option value="savings">Savings Account</option>
+			</select>
 		</div>
 
 		<div class="flex gap-3 pt-4">

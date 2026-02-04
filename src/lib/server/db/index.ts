@@ -99,6 +99,7 @@ function initializeDatabase() {
 	const hasRecurrenceInterval = billColumns.some(col => col.name === 'recurrence_interval');
 	const hasRecurrenceUnit = billColumns.some(col => col.name === 'recurrence_unit');
 	const hasPaymentMethodId = billColumns.some(col => col.name === 'payment_method_id');
+	const hasAssetTagId = billColumns.some(col => col.name === 'asset_tag_id');
 
 	if (!hasAutopay) {
 		sqlite.exec('ALTER TABLE bills ADD COLUMN is_autopay INTEGER NOT NULL DEFAULT 0');
@@ -125,6 +126,36 @@ function initializeDatabase() {
 		console.log('Added payment_method_id column to bills table');
 	}
 
+	if (!hasAssetTagId) {
+		sqlite.exec('ALTER TABLE bills ADD COLUMN asset_tag_id INTEGER');
+		console.log('Added asset_tag_id column to bills table');
+	}
+
+	const categoriesTableExists = sqlite
+		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='categories'")
+		.get() as { count: number };
+	if (categoriesTableExists.count > 0) {
+		const presetCategories = [
+			{ name: 'Utility', color: '#3b82f6', icon: 'utility' },
+			{ name: 'Insurance', color: '#10b981', icon: 'insurance' },
+			{ name: 'Mortgage', color: '#8b5cf6', icon: 'mortgage' },
+			{ name: 'Fee', color: '#f59e0b', icon: 'fee' }
+		];
+
+		const selectCategory = sqlite.prepare('SELECT id FROM categories WHERE name = ? LIMIT 1');
+		const insertCategory = sqlite.prepare(
+			'INSERT INTO categories (name, color, icon, created_at) VALUES (?, ?, ?, unixepoch())'
+		);
+
+		for (const category of presetCategories) {
+			const existing = selectCategory.get(category.name) as { id: number } | undefined;
+			if (!existing) {
+				insertCategory.run(category.name, category.color, category.icon);
+				console.log(`Added preset category: ${category.name}`);
+			}
+		}
+	}
+
 	const paymentMethodsTableExists = sqlite
 		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='payment_methods'")
 		.get() as { count: number };
@@ -134,11 +165,48 @@ function initializeDatabase() {
 				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
 				nickname TEXT NOT NULL,
 				last_four TEXT NOT NULL,
+				type TEXT,
 				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
 				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 			)
 		`);
 		console.log('Created payment_methods table');
+	}
+
+	const paymentMethodColumns = sqlite.prepare("PRAGMA table_info(payment_methods)").all() as Array<{ name: string }>;
+	const hasPaymentMethodType = paymentMethodColumns.some((col) => col.name === 'type');
+	if (!hasPaymentMethodType) {
+		sqlite.exec('ALTER TABLE payment_methods ADD COLUMN type TEXT');
+		console.log('Added type column to payment_methods table');
+	}
+
+	const assetTagsTableExists = sqlite
+		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='asset_tags'")
+		.get() as { count: number };
+	if (assetTagsTableExists.count === 0) {
+		sqlite.exec(`
+			CREATE TABLE asset_tags (
+				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+				name TEXT NOT NULL UNIQUE,
+				type TEXT,
+				color TEXT,
+				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+			)
+		`);
+		console.log('Created asset_tags table');
+	}
+
+	const assetTagColumns = sqlite.prepare("PRAGMA table_info(asset_tags)").all() as Array<{ name: string }>;
+	const hasAssetTagType = assetTagColumns.some((col) => col.name === 'type');
+	const hasAssetTagColor = assetTagColumns.some((col) => col.name === 'color');
+	if (!hasAssetTagType) {
+		sqlite.exec('ALTER TABLE asset_tags ADD COLUMN type TEXT');
+		console.log('Added type column to asset_tags table');
+	}
+	if (!hasAssetTagColor) {
+		sqlite.exec('ALTER TABLE asset_tags ADD COLUMN color TEXT');
+		console.log('Added color column to asset_tags table');
 	}
 
 	// Backfill recurrence interval/unit from legacy recurrence_type

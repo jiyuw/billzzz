@@ -7,11 +7,14 @@ import {
 	importedTransactions,
 	accounts,
 	paymentMethods,
+	assetTags,
 	type NewBill,
 	type NewCategory,
 	type Category,
 	type NewPaymentMethod,
 	type PaymentMethod,
+	type NewAssetTag,
+	type AssetTag,
 	type NewPaydaySettings,
 	type NewImportSession,
 	type NewImportedTransaction,
@@ -19,6 +22,7 @@ import {
 	type NewAccount
 } from './schema';
 import { eq, and, gte, lte, desc, asc, like, or, sql } from 'drizzle-orm';
+import { endOfDay } from 'date-fns';
 import type { BillFilters, BillSort } from '$lib/types/bill';
 import { calculateNextPayday, calculateFollowingPayday } from '../utils/payday';
 
@@ -109,6 +113,36 @@ export function deleteCategory(id: number) {
 	return db.delete(categories).where(eq(categories.id, id)).returning().get();
 }
 
+// ===== ASSET TAG QUERIES =====
+
+export function getAllAssetTags(): AssetTag[] {
+	return db.select().from(assetTags).orderBy(assetTags.name).all();
+}
+
+export function getAssetTagById(id: number) {
+	return db.select().from(assetTags).where(eq(assetTags.id, id)).get();
+}
+
+export function createAssetTag(data: NewAssetTag) {
+	return db.insert(assetTags).values(data).returning().get();
+}
+
+export function updateAssetTag(id: number, data: Partial<NewAssetTag>) {
+	return db
+		.update(assetTags)
+		.set({
+			...data,
+			updatedAt: new Date()
+		})
+		.where(eq(assetTags.id, id))
+		.returning()
+		.get();
+}
+
+export function deleteAssetTag(id: number) {
+	return db.delete(assetTags).where(eq(assetTags.id, id)).returning().get();
+}
+
 // ===== PAYMENT METHOD QUERIES =====
 
 export function getAllPaymentMethods(): PaymentMethod[] {
@@ -150,6 +184,7 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 			dueDate: bills.dueDate,
 			paymentLink: bills.paymentLink,
 			categoryId: bills.categoryId,
+			assetTagId: bills.assetTagId,
 			paymentMethodId: bills.paymentMethodId,
 			isRecurring: bills.isRecurring,
 			recurrenceType: bills.recurrenceType,
@@ -162,10 +197,12 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 			notes: bills.notes,
 			createdAt: bills.createdAt,
 			updatedAt: bills.updatedAt,
-			category: categories
+			category: categories,
+			assetTag: assetTags
 		})
 		.from(bills)
-		.leftJoin(categories, eq(bills.categoryId, categories.id));
+		.leftJoin(categories, eq(bills.categoryId, categories.id))
+		.leftJoin(assetTags, eq(bills.assetTagId, assetTags.id));
 
 	// Apply filters
 	const conditions = [];
@@ -235,6 +272,7 @@ export function getBillById(id: number) {
 			dueDate: bills.dueDate,
 			paymentLink: bills.paymentLink,
 			categoryId: bills.categoryId,
+			assetTagId: bills.assetTagId,
 			paymentMethodId: bills.paymentMethodId,
 			isRecurring: bills.isRecurring,
 			recurrenceType: bills.recurrenceType,
@@ -247,10 +285,14 @@ export function getBillById(id: number) {
 			notes: bills.notes,
 			createdAt: bills.createdAt,
 			updatedAt: bills.updatedAt,
-			category: categories
+			category: categories,
+			assetTag: assetTags,
+			paymentMethod: paymentMethods
 		})
 		.from(bills)
 		.leftJoin(categories, eq(bills.categoryId, categories.id))
+		.leftJoin(assetTags, eq(bills.assetTagId, assetTags.id))
+		.leftJoin(paymentMethods, eq(bills.paymentMethodId, paymentMethods.id))
 		.where(eq(bills.id, id))
 		.get();
 }
@@ -310,14 +352,14 @@ export function getDashboardStats() {
 	const totalBills = allBills.length;
 	const paidBills = allBills.filter((b) => b.isPaid).length;
 	const unpaidBills = totalBills - paidBills;
-	const overdueBills = allBills.filter((b) => !b.isPaid && b.dueDate <= now).length;
+	const overdueBills = allBills.filter((b) => !b.isPaid && endOfDay(b.dueDate) <= now).length;
 	const upcomingBills = allBills.filter(
-		(b) => !b.isPaid && b.dueDate > now && b.dueDate <= sevenDaysFromNow
+		(b) => !b.isPaid && endOfDay(b.dueDate) > now && endOfDay(b.dueDate) <= sevenDaysFromNow
 	).length;
 
 	// Calculate total amount due in next 30 days (including overdue)
 	const totalAmount = allBills
-		.filter((b) => !b.isPaid && b.dueDate <= thirtyDaysFromNow)
+		.filter((b) => !b.isPaid && endOfDay(b.dueDate) <= thirtyDaysFromNow)
 		.reduce((sum, b) => sum + b.amount, 0);
 
 	// Get payday settings if configured
@@ -336,14 +378,14 @@ export function getDashboardStats() {
 
 			// Count bills due before next payday
 			const billsBeforeNextPayday = allBills.filter(
-				(b) => !b.isPaid && b.dueDate <= nextPayday!
+				(b) => !b.isPaid && endOfDay(b.dueDate) <= nextPayday!
 			);
 			dueBeforeNextPayday = billsBeforeNextPayday.length;
 			amountDueBeforeNextPayday = billsBeforeNextPayday.reduce((sum, b) => sum + b.amount, 0);
 
 			// Count bills due before following payday
 			const billsBeforeFollowingPayday = allBills.filter(
-				(b) => !b.isPaid && b.dueDate <= followingPayday!
+				(b) => !b.isPaid && endOfDay(b.dueDate) <= followingPayday!
 			);
 			dueBeforeFollowingPayday = billsBeforeFollowingPayday.length;
 			amountDueBeforeFollowingPayday = billsBeforeFollowingPayday.reduce((sum, b) => sum + b.amount, 0);

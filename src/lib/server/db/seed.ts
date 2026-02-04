@@ -2,14 +2,10 @@ import { db } from './index';
 import { categories } from './schema';
 
 const defaultCategories = [
-	{ name: 'Utilities', color: '#3b82f6', icon: '⚡' },
-	{ name: 'Rent/Mortgage', color: '#8b5cf6', icon: '🏠' },
-	{ name: 'Subscriptions', color: '#ec4899', icon: '📺' },
-	{ name: 'Insurance', color: '#10b981', icon: '🛡️' },
-	{ name: 'Healthcare', color: '#f59e0b', icon: '🏥' },
-	{ name: 'Entertainment', color: '#06b6d4', icon: '🎮' },
-	{ name: 'Loans', color: '#ef4444', icon: '💳' },
-	{ name: 'Other', color: '#6b7280', icon: '📋' }
+	{ name: 'Utility', color: '#3b82f6', icon: 'utility' },
+	{ name: 'Insurance', color: '#10b981', icon: 'insurance' },
+	{ name: 'Mortgage', color: '#8b5cf6', icon: 'mortgage' },
+	{ name: 'Fee', color: '#f59e0b', icon: 'fee' }
 ];
 
 export async function seedCategories() {

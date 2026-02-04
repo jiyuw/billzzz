@@ -1,6 +1,9 @@
 import Database from 'better-sqlite3';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import { existsSync, unlinkSync, mkdirSync } from 'fs';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
+import * as schema from '../src/lib/server/db/schema';
 
 const dbPath = './data/bills.db';
 
@@ -35,43 +38,11 @@ const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
-// Create tables
-db.exec(`
-	CREATE TABLE IF NOT EXISTS categories (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL UNIQUE,
-		color TEXT NOT NULL,
-		icon TEXT,
-		created_at INTEGER NOT NULL DEFAULT (unixepoch())
-	);
-
-	CREATE TABLE IF NOT EXISTS bills (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		name TEXT NOT NULL,
-		amount REAL NOT NULL,
-		due_date INTEGER NOT NULL,
-		payment_link TEXT,
-		category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-		is_recurring INTEGER NOT NULL DEFAULT 0,
-		recurrence_type TEXT CHECK(recurrence_type IN ('weekly', 'biweekly', 'monthly', 'quarterly', 'yearly')),
-		recurrence_day INTEGER,
-		is_paid INTEGER NOT NULL DEFAULT 0,
-		notes TEXT,
-		created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-		updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-	);
-
-	CREATE TABLE IF NOT EXISTS payment_history (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		bill_id INTEGER NOT NULL REFERENCES bills(id) ON DELETE CASCADE,
-		amount REAL NOT NULL,
-		payment_date INTEGER NOT NULL,
-		notes TEXT,
-		created_at INTEGER NOT NULL DEFAULT (unixepoch())
-	);
-`);
-
-console.log('✓ Created database schema');
+// Create schema via Drizzle migrations for consistency
+const drizzleDb = drizzle(db, { schema });
+const migrationsFolder = join(process.cwd(), 'drizzle', 'migrations');
+migrate(drizzleDb, { migrationsFolder });
+console.log('✓ Created database schema via migrations');
 
 db.close();
 

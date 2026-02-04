@@ -4,15 +4,39 @@
 	import { formatCurrency } from '$lib/utils/format';
 	import { getRecurrenceDescription } from '$lib/utils/recurrence';
 	import { format } from 'date-fns';
-	import { ArrowLeft, Calendar, DollarSign, TrendingUp } from 'lucide-svelte';
+	import {
+		ArrowLeft,
+		Calendar,
+		DollarSign,
+		TrendingUp,
+		Home,
+		Car,
+		Zap,
+		ShieldCheck,
+		Receipt,
+		ShoppingCart,
+		Fuel,
+		Utensils,
+		Coffee,
+		Popcorn,
+		Dumbbell,
+		Gamepad2,
+		Smartphone,
+		Shirt,
+		Dog,
+		Heart
+	} from 'lucide-svelte';
+	import StatusIndicator from '$lib/components/StatusIndicator.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import BillForm from '$lib/components/BillForm.svelte';
 	import PaymentModal from '$lib/components/PaymentModal.svelte';
+	import LineChart from '$lib/components/LineChart.svelte';
 
 	let { data }: { data: PageData } = $props();
 
 	const bill = $derived(data.bill);
 	const currentCycle = $derived(bill.currentCycle);
+	const focusCycle = $derived(bill.focusCycle ?? bill.currentCycle);
 	const cycles = $derived(data.cycles);
 	const payments = $derived(data.payments);
 	const displayCycles = $derived.by(() => cycles.filter((cycle) => cycle.totalPaid > 0));
@@ -32,61 +56,54 @@
 			.slice(-12)
 	);
 
-	const chartWidth = 640;
-	const chartHeight = 200;
-	const chartPadding = { top: 16, right: 16, bottom: 24, left: 32 };
-	let hoverIndex = $state<number | null>(null);
-	let tooltipX = $state(0);
-	let tooltipY = $state(0);
-
-	const chartValues = $derived.by(() => historyCycles.map((cycle) => cycle.totalPaid));
-	const chartMax = $derived.by(() => Math.max(1, ...chartValues));
-	const chartMin = 0;
-	const chartX = $derived.by(() => (index: number) => {
-		if (historyCycles.length <= 1) {
-			return (chartWidth - chartPadding.left - chartPadding.right) / 2;
-		}
-		return (
-			(index / (historyCycles.length - 1)) *
-			(chartWidth - chartPadding.left - chartPadding.right)
-		);
+	const chartRange = $derived.by(() => {
+		const cyclesSorted = [...cycles].sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+		const lastCycles = cyclesSorted.slice(-10);
+		const rangeStart = lastCycles[0]?.startDate ?? null;
+		const focusEnd = (focusCycle ?? currentCycle)?.endDate ?? null;
+		const rangeEnd = focusEnd ?? lastCycles[lastCycles.length - 1]?.endDate ?? null;
+		return { lastCycles, rangeStart, rangeEnd };
 	});
-	const chartY = $derived.by(() => (value: number) =>
-		(chartHeight - chartPadding.top - chartPadding.bottom) -
-		((value - chartMin) / (chartMax - chartMin)) *
-			(chartHeight - chartPadding.top - chartPadding.bottom)
-	);
-	const linePath = $derived.by(() =>
-		historyCycles
-			.map((cycle, index) => {
-				const x = chartX(index);
-				const y = chartY(cycle.totalPaid);
-				return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-			})
-			.join(' ')
-	);
 
-	function handleChartMove(event: MouseEvent) {
-		if (historyCycles.length === 0) return;
-		const svg = event.currentTarget as SVGElement;
-		const rect = svg.getBoundingClientRect();
-		const x = event.clientX - rect.left - chartPadding.left;
-		const y = event.clientY - rect.top;
-		const chartInnerWidth = chartWidth - chartPadding.left - chartPadding.right;
-		if (x < 0 || x > chartInnerWidth) {
-			hoverIndex = null;
-			return;
-		}
-		const index = Math.round((x / chartInnerWidth) * (historyCycles.length - 1));
-		hoverIndex = Math.max(0, Math.min(historyCycles.length - 1, index));
-		tooltipX = event.clientX - rect.left;
-		tooltipY = y;
-	}
+	const chartPoints = $derived.by(() => {
+		if (!chartRange.rangeStart || !chartRange.rangeEnd) return [];
+		return payments
+			.filter((payment) => payment.paymentDate >= chartRange.rangeStart && payment.paymentDate <= chartRange.rangeEnd)
+			.sort((a, b) => a.paymentDate.getTime() - b.paymentDate.getTime())
+			.map((payment) => ({
+				x: payment.paymentDate,
+				y: payment.amount
+			}));
+	});
 
-	function handleChartLeave() {
-		hoverIndex = null;
-	}
+	const assetIcon = $derived.by(() => {
+		if (bill.assetTag?.type === 'house') return Home;
+		if (bill.assetTag?.type === 'vehicle') return Car;
+		return null;
+	});
 
+	const categoryIcon = $derived.by(() => {
+		const iconMap = {
+			utility: Zap,
+			insurance: ShieldCheck,
+			mortgage: Home,
+			fee: Receipt,
+			'shopping-cart': ShoppingCart,
+			fuel: Fuel,
+			utensils: Utensils,
+			coffee: Coffee,
+			popcorn: Popcorn,
+			dumbbell: Dumbbell,
+			gamepad: Gamepad2,
+			smartphone: Smartphone,
+			shirt: Shirt,
+			home: Home,
+			dog: Dog,
+			heart: Heart
+		};
+		if (!bill.category?.icon) return null;
+		return iconMap[bill.category.icon as keyof typeof iconMap] || null;
+	});
 
 	// Group payments by cycle
 	const paymentsByCycle = $derived.by(() => payments.reduce((acc, payment) => {
@@ -114,18 +131,19 @@
 	}
 
 	const isCyclePaid = $derived.by(() => {
-		if (!currentCycle) return false;
-		if (currentCycle.expectedAmount > 0) {
-			return currentCycle.isPaid || currentCycle.totalPaid >= currentCycle.expectedAmount;
+		const cycle = focusCycle ?? currentCycle;
+		if (!cycle) return false;
+		if (bill.isVariable) {
+			return cycle.totalPaid > 0 || cycle.isPaid;
 		}
-		return currentCycle.totalPaid > 0;
+		return cycle.isPaid || cycle.totalPaid >= cycle.expectedAmount;
 	});
 
 	let showEditModal = $state(false);
 	let showPaymentModal = $state(false);
 
 	async function handleTogglePaid() {
-		if (!bill.isPaid) {
+		if (!isCyclePaid) {
 			showPaymentModal = true;
 			return;
 		}
@@ -143,12 +161,12 @@
 		}
 	}
 
-	async function handleConfirmPayment(amount: number, paymentDate: string) {
+	async function handleConfirmPayment(amount: number, paymentDate: string, cycleId: number | null) {
 		try {
 			const response = await fetch(`/api/bills/${bill.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate })
+				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate, paymentCycleId: cycleId })
 			});
 			if (response.ok) {
 				showPaymentModal = false;
@@ -211,18 +229,77 @@
 			Back to Bills
 		</button>
 
-		<div class="flex items-start justify-between">
+		<div class="flex items-start justify-between gap-4">
 			<div class="flex-1">
-				<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{bill.name}</h1>
+				<div class="flex flex-wrap items-center gap-3">
+					<h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">{bill.name}</h1>
+					<StatusIndicator
+						dueDate={(focusCycle ?? bill.currentCycle)?.endDate ?? bill.dueDate}
+						isPaid={isCyclePaid}
+					/>
+				</div>
 				<p class="text-gray-600 dark:text-gray-400 mt-1">
 					{#if bill.isRecurring}
-						Recurring {getRecurrenceDescription(bill.recurrenceInterval ?? 1, bill.recurrenceUnit ?? 'month', bill.recurrenceDay)} • Due {format(bill.dueDate, 'MMM d, yyyy')}
+						Recurring {getRecurrenceDescription(bill.recurrenceInterval ?? 1, bill.recurrenceUnit ?? 'month', bill.recurrenceDay)} • Due {format((focusCycle ?? bill.currentCycle)?.endDate ?? bill.dueDate, 'MMM d, yyyy')}
 					{:else}
-						One-time bill • Due {format(bill.dueDate, 'MMM d, yyyy')}
+						One-time bill • Due {format((focusCycle ?? bill.currentCycle)?.endDate ?? bill.dueDate, 'MMM d, yyyy')}
 					{/if}
 				</p>
+				<div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+					<div class="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<p class="text-xs text-gray-500 dark:text-gray-400">Autopay</p>
+						<p class="text-sm font-medium text-gray-900 dark:text-gray-100">
+							{#if bill.isAutopay}
+								On
+								{#if bill.paymentMethod}
+									<span class="text-xs text-gray-500 dark:text-gray-400">
+										• {bill.paymentMethod.nickname} •••• {bill.paymentMethod.lastFour}
+									</span>
+								{/if}
+							{:else}
+								Off
+							{/if}
+						</p>
+					</div>
+
+					<div class="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<p class="text-xs text-gray-500 dark:text-gray-400">Category</p>
+						{#if bill.category}
+							<div class="mt-1 flex items-center gap-2">
+								{#if categoryIcon}
+									<svelte:component
+										this={categoryIcon}
+										size={16}
+										style="color: {bill.category.color}"
+									/>
+								{:else if bill.category.icon}
+									<span class="text-sm" style="color: {bill.category.color}">{bill.category.icon}</span>
+								{/if}
+								<p class="text-sm font-medium" style="color: {bill.category.color}">
+									{bill.category.name}
+								</p>
+							</div>
+						{:else}
+							<p class="text-sm font-medium text-gray-900 dark:text-gray-100">Uncategorized</p>
+						{/if}
+					</div>
+
+					<div class="rounded-lg border border-gray-200 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+						<p class="text-xs text-gray-500 dark:text-gray-400">Asset Tag</p>
+						{#if bill.assetTag}
+							<div class="mt-1 flex items-center gap-2">
+								{#if assetIcon}
+									<svelte:component this={assetIcon} size={16} class="text-gray-600 dark:text-gray-300" />
+								{/if}
+								<p class="text-sm font-medium text-gray-900 dark:text-gray-100">{bill.assetTag.name}</p>
+							</div>
+						{:else}
+							<p class="text-sm font-medium text-gray-900 dark:text-gray-100">None</p>
+						{/if}
+					</div>
+				</div>
 			</div>
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-3">
 				<button
 					onclick={handleTogglePaid}
 					class="rounded-md p-2 min-h-9 min-w-9 transition-all text-gray-500 hover:bg-gray-100 hover:text-gray-700 hover:scale-105 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-300 cursor-pointer"
@@ -309,7 +386,7 @@
 	</div>
 
 	<!-- Current Cycle Card -->
-	{#if currentCycle}
+	{#if focusCycle}
 		<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
 			<div class="flex items-center gap-2 mb-4">
 				<Calendar class="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -320,22 +397,22 @@
 				<div>
 					<p class="text-sm text-gray-600 dark:text-gray-400">Period</p>
 					<p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-						{format(currentCycle.startDate, 'MMM d')} - {format(currentCycle.endDate, 'MMM d, yyyy')}
+						{format(focusCycle.startDate, 'MMM d')} - {format(focusCycle.endDate, 'MMM d, yyyy')}
 					</p>
 				</div>
 				<div>
 					<p class="text-sm text-gray-600 dark:text-gray-400">Total Paid</p>
 					<p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-						{bill.isVariable && currentCycle.totalPaid === 0
+						{bill.isVariable && focusCycle.totalPaid === 0
 							? 'Unpaid'
-							: formatCurrency(currentCycle.totalPaid)}
+							: formatCurrency(focusCycle.totalPaid)}
 					</p>
 				</div>
 				{#if !bill.isVariable}
 					<div>
 						<p class="text-sm text-gray-600 dark:text-gray-400">Expected Amount</p>
 						<p class="text-lg font-medium text-gray-900 dark:text-gray-100">
-							{formatCurrency(currentCycle.expectedAmount)}
+							{formatCurrency(focusCycle.expectedAmount)}
 						</p>
 					</div>
 				{/if}
@@ -346,29 +423,29 @@
 				<div class="mb-2">
 					<div class="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
 						<span>Progress</span>
-						<span>{currentCycle.percentPaid.toFixed(0)}%</span>
+						<span>{focusCycle.percentPaid.toFixed(0)}%</span>
 					</div>
 					<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
 						<div
 							class="h-3 rounded-full transition-all {getStatusColor(
-								currentCycle.isPaid,
-								currentCycle.totalPaid,
-								currentCycle.expectedAmount
+								focusCycle.isPaid,
+								focusCycle.totalPaid,
+								focusCycle.expectedAmount
 							)}"
-							style="width: {currentCycle.percentPaid}%"
+							style="width: {focusCycle.percentPaid}%"
 						></div>
 					</div>
 				</div>
 			{/if}
 
 			<!-- Current Cycle Payments -->
-			{#if paymentsByCycle[currentCycle.id]?.length > 0}
+			{#if paymentsByCycle[focusCycle.id]?.length > 0}
 				<div class="mt-4">
 					<h3 class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
 						Payments This Cycle
 					</h3>
 					<div class="space-y-2">
-						{#each paymentsByCycle[currentCycle.id] as payment}
+						{#each paymentsByCycle[focusCycle.id] as payment}
 							<div
 								class="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-700 rounded"
 							>
@@ -436,84 +513,13 @@
 			{#if historyCycles.length > 0}
 				<div class="mb-6 relative">
 					<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">Last {historyCycles.length} cycles</p>
-					<div class="w-full overflow-x-auto">
-						<svg
-							viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-							class="w-full h-52"
-							role="img"
-							aria-label="Payment history line chart"
-							onmousemove={handleChartMove}
-							onmouseleave={handleChartLeave}
-						>
-							<defs>
-								<linearGradient id="historyLine" x1="0%" y1="0%" x2="100%" y2="0%">
-									<stop offset="0%" stop-color="#60a5fa" />
-									<stop offset="100%" stop-color="#3b82f6" />
-								</linearGradient>
-								<linearGradient id="historyFill" x1="0%" y1="0%" x2="0%" y2="100%">
-									<stop offset="0%" stop-color="#93c5fd" stop-opacity="0.35" />
-									<stop offset="100%" stop-color="#93c5fd" stop-opacity="0" />
-								</linearGradient>
-							</defs>
-							<g transform={`translate(${chartPadding.left}, ${chartPadding.top})`}>
-								<line
-									x1="0"
-									y1={chartHeight - chartPadding.top - chartPadding.bottom}
-									x2={chartWidth - chartPadding.left - chartPadding.right}
-									y2={chartHeight - chartPadding.top - chartPadding.bottom}
-									stroke="currentColor"
-									stroke-opacity="0.15"
-								/>
-								<path
-									d={`${linePath} L ${chartWidth - chartPadding.left - chartPadding.right} ${chartHeight - chartPadding.top - chartPadding.bottom} L 0 ${chartHeight - chartPadding.top - chartPadding.bottom} Z`}
-									fill="url(#historyFill)"
-								/>
-								<path
-									d={linePath}
-									fill="none"
-									stroke="url(#historyLine)"
-									stroke-width="2"
-									stroke-linecap="round"
-									stroke-linejoin="round"
-								/>
-								{#each historyCycles as cycle, index}
-									{#if index === historyCycles.length - 1}
-										<circle
-											cx={chartX(index)}
-											cy={chartY(cycle.totalPaid)}
-											r="5"
-											fill="#3b82f6"
-											stroke="white"
-											stroke-width="2"
-										/>
-									{:else}
-										<circle
-											cx={chartX(index)}
-											cy={chartY(cycle.totalPaid)}
-											r="2.5"
-											fill="#93c5fd"
-											fill-opacity="0.9"
-										/>
-									{/if}
-								{/each}
-							</g>
-						</svg>
-					</div>
-					{#if hoverIndex !== null}
-						<div
-							class="pointer-events-none absolute z-10 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200"
-							style="left: {Math.min(Math.max(tooltipX + 8, 8), chartWidth - 120)}px; top: {Math.max(tooltipY - 36, 8)}px;"
-						>
-							<div>
-								{format(historyCycles[hoverIndex].startDate, 'MMM d, yyyy')} – {format(historyCycles[hoverIndex].endDate, 'MMM d, yyyy')}
-							</div>
-							<div class="font-semibold">{formatCurrency(historyCycles[hoverIndex].totalPaid)}</div>
-						</div>
-					{/if}
-					<div class="mt-2 flex justify-between text-xs text-gray-500 dark:text-gray-400">
-						<span>{format(historyCycles[0].startDate, 'MMM yyyy')}</span>
-						<span>{format(historyCycles[historyCycles.length - 1].startDate, 'MMM yyyy')}</span>
-					</div>
+					<LineChart
+						points={chartPoints}
+						cycleBoundaries={chartRange.lastCycles.map((cycle) => cycle.startDate)}
+						rangeStart={chartRange.rangeStart ?? undefined}
+						rangeEnd={chartRange.rangeEnd ?? undefined}
+						height={220}
+					/>
 				</div>
 			{/if}
 
@@ -583,6 +589,7 @@
 	<Modal bind:isOpen={showEditModal} onClose={() => (showEditModal = false)} title="Edit Bill">
 		<BillForm
 			categories={data.categories}
+			assetTags={data.assetTags}
 			paymentMethods={data.paymentMethods}
 			initialData={{
 				name: bill.name,
@@ -590,6 +597,7 @@
 				dueDate: bill.dueDate,
 				paymentLink: bill.paymentLink || undefined,
 				categoryId: bill.categoryId,
+				assetTagId: bill.assetTagId ?? undefined,
 				isRecurring: bill.isRecurring,
 				recurrenceInterval: bill.recurrenceInterval || undefined,
 				recurrenceUnit: bill.recurrenceUnit || undefined,
@@ -610,6 +618,8 @@
 <PaymentModal
 	bind:isOpen={showPaymentModal}
 	bill={bill}
+	cycles={cycles}
+	focusCycleId={bill.focusCycle?.id ?? null}
 	onConfirm={handleConfirmPayment}
 	onCancel={handleCancelPayment}
 />

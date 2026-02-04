@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatDistanceToNow, isPast, differenceInDays } from 'date-fns';
+import { formatDistanceToNow, isPast, differenceInDays, endOfDay } from 'date-fns';
 
 	interface Props {
 		dueDate: Date;
@@ -9,10 +9,11 @@
 	let { dueDate, isPaid }: Props = $props();
 
 	const status = $derived.by(() => {
+		const dueAt = endOfDay(dueDate);
 		if (isPaid) return 'paid';
-		if (isPast(dueDate)) return 'overdue';
+		if (isPast(dueAt)) return 'overdue';
 
-		const daysUntilDue = differenceInDays(dueDate, new Date());
+		const daysUntilDue = differenceInDays(dueAt, new Date());
 		if (daysUntilDue <= 7) return 'upcoming';
 
 		return 'pending';
@@ -26,14 +27,15 @@
 	};
 
 	const statusText = $derived.by(() => {
+		const dueAt = endOfDay(dueDate);
 		if (isPaid) return 'Paid';
-		if (status === 'overdue') return `Overdue ${formatDistanceToNow(dueDate)}`;
-		return `Due ${formatDistanceToNow(dueDate, { addSuffix: true })}`;
+		if (status === 'overdue') return `Overdue ${formatDistanceToNow(dueAt)}`;
+		return `Due ${formatDistanceToNow(dueAt, { addSuffix: true })}`;
 	});
 </script>
 
 <span
-	class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium {statusClasses[
+	class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium leading-none {statusClasses[
 		status
 	]}"
 >

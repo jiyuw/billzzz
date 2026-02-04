@@ -9,30 +9,26 @@
 	import ResetDataModal from '$lib/components/settings/ResetDataModal.svelte';
 	import CategoriesSection from '$lib/components/settings/CategoriesSection.svelte';
 	import CategoryFormModal from '$lib/components/settings/CategoryFormModal.svelte';
+	import AssetTagsSection from '$lib/components/settings/AssetTagsSection.svelte';
+	import AssetTagFormModal from '$lib/components/settings/AssetTagFormModal.svelte';
 	import AccountsSection from '$lib/components/settings/AccountsSection.svelte';
 	import AccountFormModal from '$lib/components/settings/AccountFormModal.svelte';
 	import PaymentMethodsSection from '$lib/components/settings/PaymentMethodsSection.svelte';
 	import PaymentMethodFormModal from '$lib/components/settings/PaymentMethodFormModal.svelte';
 	import ThemeSelector from '$lib/components/ThemeSelector.svelte';
 	import {
-		ShoppingCart,
-		Fuel,
-		Utensils,
-		Coffee,
-		Popcorn,
-		Dumbbell,
-		Gamepad2,
-		Smartphone,
-		Shirt,
+		Zap,
+		ShieldCheck,
 		Home,
-		Dog,
-		Heart
+		Receipt
 	} from 'lucide-svelte';
 
 	let { data }: { data: PageData } = $props();
 
 	let showAddCategoryModal = $state(false);
 	let showEditCategoryModal = $state(false);
+	let showAddAssetTagModal = $state(false);
+	let showEditAssetTagModal = $state(false);
 	let showAddAccountModal = $state(false);
 	let showEditAccountModal = $state(false);
 	let showAddPaymentMethodModal = $state(false);
@@ -40,6 +36,7 @@
 	let showPaydaySettingsModal = $state(false);
 	let showResetModal = $state(false);
 	let editingCategoryId = $state<number | null>(null);
+	let editingAssetTagId = $state<number | null>(null);
 	let editingAccountId = $state<number | null>(null);
 	let editingPaymentMethodId = $state<number | null>(null);
 	let categoryForm = $state({
@@ -47,29 +44,27 @@
 		color: '#3B82F6',
 		icon: ''
 	});
+	let assetTagForm = $state({
+		name: '',
+		type: '',
+		color: '#6b7280'
+	});
 	let accountForm = $state({
 		name: '',
 		isExternal: false
 	});
 	let paymentMethodForm = $state({
 		nickname: '',
-		lastFour: ''
+		lastFour: '',
+		type: 'credit_card'
 	});
 
 	// Icon options for categories (same as buckets)
 	const iconOptions = [
-		{ id: 'shopping-cart', component: ShoppingCart, label: 'Groceries' },
-		{ id: 'fuel', component: Fuel, label: 'Gas' },
-		{ id: 'utensils', component: Utensils, label: 'Food' },
-		{ id: 'coffee', component: Coffee, label: 'Coffee' },
-		{ id: 'popcorn', component: Popcorn, label: 'Entertainment' },
-		{ id: 'dumbbell', component: Dumbbell, label: 'Fitness' },
-		{ id: 'gamepad', component: Gamepad2, label: 'Gaming' },
-		{ id: 'smartphone', component: Smartphone, label: 'Tech' },
-		{ id: 'shirt', component: Shirt, label: 'Clothing' },
-		{ id: 'home', component: Home, label: 'Home' },
-		{ id: 'dog', component: Dog, label: 'Pets' },
-		{ id: 'heart', component: Heart, label: 'Health' }
+		{ id: 'utility', component: Zap, label: 'Utility' },
+		{ id: 'insurance', component: ShieldCheck, label: 'Insurance' },
+		{ id: 'mortgage', component: Home, label: 'Mortgage' },
+		{ id: 'fee', component: Receipt, label: 'Fee' }
 	];
 
 	async function handleSavePaydaySettings(settingsData: any) {
@@ -123,6 +118,15 @@
 		showAddCategoryModal = true;
 	}
 
+	function openAddAssetTagModal() {
+		assetTagForm = {
+			name: '',
+			type: 'house',
+			color: '#10b981'
+		};
+		showAddAssetTagModal = true;
+	}
+
 	function openEditCategoryModal(id: number) {
 		const category = data.categories.find((c) => c.id === id);
 		if (category) {
@@ -133,6 +137,19 @@
 			};
 			editingCategoryId = id;
 			showEditCategoryModal = true;
+		}
+	}
+
+	function openEditAssetTagModal(id: number) {
+		const tag = data.assetTags.find((t) => t.id === id);
+		if (tag) {
+			assetTagForm = {
+				name: tag.name,
+				type: tag.type || '',
+				color: tag.color || '#6b7280'
+			};
+			editingAssetTagId = id;
+			showEditAssetTagModal = true;
 		}
 	}
 
@@ -158,6 +175,35 @@
 		} catch (error) {
 			console.error('Error creating category:', error);
 			alert('Failed to create category. Please try again.');
+		}
+	}
+
+	async function handleAddAssetTag() {
+		if (!assetTagForm.name.trim()) {
+			alert('Please enter a tag name');
+			return;
+		}
+
+		try {
+			const response = await fetch('/api/asset-tags', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: assetTagForm.name,
+					type: assetTagForm.type || null,
+					color: assetTagForm.color || null
+				})
+			});
+
+			if (response.ok) {
+				showAddAssetTagModal = false;
+				await invalidateAll();
+			} else {
+				alert('Failed to create asset tag. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error creating asset tag:', error);
+			alert('Failed to create asset tag. Please try again.');
 		}
 	}
 
@@ -187,6 +233,36 @@
 		}
 	}
 
+	async function handleUpdateAssetTag() {
+		if (!assetTagForm.name.trim() || editingAssetTagId === null) {
+			alert('Please enter a tag name');
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/asset-tags/${editingAssetTagId}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					name: assetTagForm.name,
+					type: assetTagForm.type || null,
+					color: assetTagForm.color || null
+				})
+			});
+
+			if (response.ok) {
+				showEditAssetTagModal = false;
+				editingAssetTagId = null;
+				await invalidateAll();
+			} else {
+				alert('Failed to update asset tag. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error updating asset tag:', error);
+			alert('Failed to update asset tag. Please try again.');
+		}
+	}
+
 	async function handleDeleteCategory(id: number, name: string) {
 		if (
 			!confirm(
@@ -212,9 +288,38 @@
 		}
 	}
 
+	async function handleDeleteAssetTag(id: number, name: string) {
+		if (
+			!confirm(
+				`Are you sure you want to delete the asset tag "${name}"? This will remove the tag from any bills using it.`
+			)
+		) {
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/asset-tags/${id}`, {
+				method: 'DELETE'
+			});
+
+			if (response.ok) {
+				await invalidateAll();
+			} else {
+				alert('Failed to delete asset tag. Please try again.');
+			}
+		} catch (error) {
+			console.error('Error deleting asset tag:', error);
+			alert('Failed to delete asset tag. Please try again.');
+		}
+	}
+
 	async function handleAddPaymentMethod() {
 		if (!paymentMethodForm.nickname.trim() || !paymentMethodForm.lastFour.trim()) {
 			alert('Please enter a nickname and last 4 digits');
+			return;
+		}
+		if (!/^\d{4}$/.test(paymentMethodForm.lastFour)) {
+			alert('Please enter exactly 4 digits for the last 4');
 			return;
 		}
 
@@ -222,7 +327,11 @@
 			const response = await fetch('/api/payment-methods', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(paymentMethodForm)
+				body: JSON.stringify({
+					nickname: paymentMethodForm.nickname,
+					lastFour: paymentMethodForm.lastFour,
+					type: paymentMethodForm.type || null
+				})
 			});
 
 			if (response.ok) {
@@ -242,12 +351,20 @@
 			alert('Please enter a nickname and last 4 digits');
 			return;
 		}
+		if (!/^\d{4}$/.test(paymentMethodForm.lastFour)) {
+			alert('Please enter exactly 4 digits for the last 4');
+			return;
+		}
 
 		try {
 			const response = await fetch(`/api/payment-methods/${editingPaymentMethodId}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(paymentMethodForm)
+				body: JSON.stringify({
+					nickname: paymentMethodForm.nickname,
+					lastFour: paymentMethodForm.lastFour,
+					type: paymentMethodForm.type || null
+				})
 			});
 
 			if (response.ok) {
@@ -295,7 +412,8 @@
 	function openAddPaymentMethodModal() {
 		paymentMethodForm = {
 			nickname: '',
-			lastFour: ''
+			lastFour: '',
+			type: 'credit_card'
 		};
 		showAddPaymentMethodModal = true;
 	}
@@ -317,7 +435,8 @@
 		if (method) {
 			paymentMethodForm = {
 				nickname: method.nickname,
-				lastFour: method.lastFour
+				lastFour: method.lastFour,
+				type: method.type || 'credit_card'
 			};
 			editingPaymentMethodId = id;
 			showEditPaymentMethodModal = true;
@@ -439,6 +558,13 @@
 		onDelete={handleDeleteCategory}
 	/>
 
+	<AssetTagsSection
+		assetTags={data.assetTags}
+		onAdd={openAddAssetTagModal}
+		onEdit={openEditAssetTagModal}
+		onDelete={handleDeleteAssetTag}
+	/>
+
 	<AccountsSection
 		accounts={data.accounts}
 		onAdd={openAddAccountModal}
@@ -478,6 +604,27 @@
 	onCancel={() => {
 		showEditCategoryModal = false;
 		editingCategoryId = null;
+	}}
+/>
+
+<!-- Add Asset Tag Modal -->
+<AssetTagFormModal
+	bind:isOpen={showAddAssetTagModal}
+	mode="add"
+	bind:assetTagForm
+	onSubmit={handleAddAssetTag}
+	onCancel={() => (showAddAssetTagModal = false)}
+/>
+
+<!-- Edit Asset Tag Modal -->
+<AssetTagFormModal
+	bind:isOpen={showEditAssetTagModal}
+	mode="edit"
+	bind:assetTagForm
+	onSubmit={handleUpdateAssetTag}
+	onCancel={() => {
+		showEditAssetTagModal = false;
+		editingAssetTagId = null;
 	}}
 />
 

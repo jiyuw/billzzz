@@ -14,7 +14,7 @@ import {
 	findCycleForPaymentDate,
 	generateBillCyclesBetween
 } from '../utils/bill-cycle-calculator';
-import { isBefore, isAfter } from 'date-fns';
+import { isBefore, isAfter, endOfDay } from 'date-fns';
 
 /**
  * Get bill with current cycle
@@ -28,12 +28,14 @@ export async function getBillWithCurrentCycle(id: number): Promise<BillWithCycle
 	await ensureCyclesExist(bill);
 
 	const currentCycle = await getCurrentCycle(bill.id);
+	const focusCycle = await getFocusCycleForBill(bill.id);
 
 	const usageStats = bill.isVariable ? await getBillUsageStats(bill.id) : null;
 
 	return {
 		...bill,
 		currentCycle: currentCycle ? addComputedFields(currentCycle) : null,
+		focusCycle: focusCycle ? addComputedFields(focusCycle) : null,
 		usageStats
 	};
 }
@@ -49,11 +51,13 @@ export async function getAllBillsWithCurrentCycle(): Promise<BillWithCycle[]> {
 		allBills.map(async (bill) => {
 			await ensureCyclesExist(bill);
 			const currentCycle = await getCurrentCycle(bill.id);
+			const focusCycle = await getFocusCycleForBill(bill.id);
 			const usageStats = bill.isVariable ? await getBillUsageStats(bill.id) : null;
 
 			return {
 				...bill,
 				currentCycle: currentCycle ? addComputedFields(currentCycle) : null,
+				focusCycle: focusCycle ? addComputedFields(focusCycle) : null,
 				usageStats
 			};
 		})
@@ -129,6 +133,44 @@ export async function getCyclesForBill(billId: number): Promise<BillCycle[]> {
 }
 
 /**
+ * Get the focus cycle for a bill.
+ * Rule: pick the earliest unpaid cycle that ends on or before today.
+ * If none, use the current cycle (today's cycle), even if paid.
+ */
+export async function getFocusCycleForBill(billId: number): Promise<BillCycle | undefined> {
+	const now = new Date();
+	const todayEnd = endOfDay(now);
+	const todayEndTimestamp = Math.floor(todayEnd.getTime() / 1000);
+
+	const unpaidPast = await db
+		.select()
+		.from(billCycles)
+		.where(
+			and(
+				eq(billCycles.billId, billId),
+				eq(billCycles.isPaid, false),
+				sql`${billCycles.endDate} <= ${todayEndTimestamp}`
+			)
+		)
+		.orderBy(asc(billCycles.startDate))
+		.limit(1);
+
+	if (unpaidPast.length > 0) return unpaidPast[0];
+
+	const current = await getCurrentCycle(billId);
+	if (current) return current;
+
+	const latestPast = await db
+		.select()
+		.from(billCycles)
+		.where(and(eq(billCycles.billId, billId), sql`${billCycles.endDate} <= ${todayEndTimestamp}`))
+		.orderBy(desc(billCycles.startDate))
+		.limit(1);
+
+	return latestPast[0];
+}
+
+/**
  * Ensure cycles exist up to the current date
  */
 async function ensureCyclesExist(bill: Bill): Promise<void> {
@@ -155,7 +197,7 @@ async function ensureCyclesExist(bill: Bill): Promise<void> {
 			await db.insert(billCycles).values({
 				billId: bill.id,
 				startDate: bill.createdAt,
-				endDate: bill.dueDate,
+				endDate: endOfDay(bill.dueDate),
 				expectedAmount: bill.amount,
 				totalPaid: 0,
 				isPaid: bill.isPaid
@@ -272,6 +314,44 @@ export async function createPayment(
 
 	// Recalculate cycles from this point forward
 	await recalculateCyclesFrom(bill, cycleDates.startDate);
+
+	return result[0];
+}
+
+/**
+ * Create a payment for a specific cycle and update cycle totals
+ */
+export async function createPaymentForCycle(
+	data: Omit<NewBillPayment, 'cycleId'>,
+	cycleId: number
+): Promise<BillPayment> {
+	const { getBillById } = await import('./queries');
+	const bill = getBillById(data.billId);
+	if (!bill) throw new Error('Bill not found');
+
+	// Ensure cycles exist
+	await ensureCyclesExist(bill);
+
+	const cycle = await db
+		.select()
+		.from(billCycles)
+		.where(and(eq(billCycles.id, cycleId), eq(billCycles.billId, data.billId)))
+		.limit(1);
+
+	if (cycle.length === 0) {
+		throw new Error('Cycle not found');
+	}
+
+	const result = await db
+		.insert(billPayments)
+		.values({
+			...data,
+			cycleId
+		})
+		.returning();
+
+	// Recalculate cycles from this point forward
+	await recalculateCyclesFrom(bill, cycle[0].startDate);
 
 	return result[0];
 }
@@ -416,7 +496,7 @@ async function recalculateCyclesFrom(bill: Bill, startDate: Date): Promise<void>
 		const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
 
 		// Determine if cycle is paid
-		const isPaid = totalPaid >= cycle.expectedAmount;
+		const isPaid = bill.isVariable ? totalPaid > 0 : totalPaid >= cycle.expectedAmount;
 
 		// Update the cycle
 		await db

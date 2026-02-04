@@ -11,10 +11,24 @@ export const categories = sqliteTable('categories', {
 		.default(sql`(unixepoch())`)
 });
 
+export const assetTags = sqliteTable('asset_tags', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+	name: text('name').notNull().unique(),
+	type: text('type', { enum: ['house', 'vehicle'] }),
+	color: text('color'),
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	updatedAt: integer('updated_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`)
+});
+
 export const paymentMethods = sqliteTable('payment_methods', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
 	nickname: text('nickname').notNull(),
 	lastFour: text('last_four').notNull(),
+	type: text('type', { enum: ['credit_card', 'checking', 'savings'] }),
 	createdAt: integer('created_at', { mode: 'timestamp' })
 		.notNull()
 		.default(sql`(unixepoch())`),
@@ -30,6 +44,7 @@ export const bills = sqliteTable('bills', {
 	dueDate: integer('due_date', { mode: 'timestamp' }).notNull(),
 	paymentLink: text('payment_link'),
 	categoryId: integer('category_id').references(() => categories.id, { onDelete: 'set null' }),
+	assetTagId: integer('asset_tag_id').references(() => assetTags.id, { onDelete: 'set null' }),
 	paymentMethodId: integer('payment_method_id').references(() => paymentMethods.id, { onDelete: 'set null' }),
 	isRecurring: integer('is_recurring', { mode: 'boolean' }).notNull().default(false),
 	recurrenceType: text('recurrence_type', {
@@ -159,6 +174,9 @@ export const debtStrategySettings = sqliteTable('debt_strategy_settings', {
 // Type exports for use in application
 export type Category = typeof categories.$inferSelect;
 export type NewCategory = typeof categories.$inferInsert;
+
+export type AssetTag = typeof assetTags.$inferSelect;
+export type NewAssetTag = typeof assetTags.$inferInsert;
 
 export type PaymentMethod = typeof paymentMethods.$inferSelect;
 export type NewPaymentMethod = typeof paymentMethods.$inferInsert;

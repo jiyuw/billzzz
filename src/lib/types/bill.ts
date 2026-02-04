@@ -7,6 +7,7 @@ export type BillStatus = 'paid' | 'upcoming' | 'overdue';
 // Extended bill type with category details
 export interface BillWithCategory extends Bill {
 	category?: Category | null;
+	assetTag?: { id: number; name: string; type?: 'house' | 'vehicle' | null; color?: string | null } | null;
 }
 
 // Bill cycle with computed fields
@@ -26,7 +27,11 @@ export interface BillUsageStats {
 // Bill with current cycle information
 export interface BillWithCycle extends Bill {
 	currentCycle?: BillCycleWithComputed | null;
+	focusCycle?: BillCycleWithComputed | null;
 	usageStats?: BillUsageStats | null;
+	category?: Category | null;
+	assetTag?: { id: number; name: string; type?: 'house' | 'vehicle' | null; color?: string | null } | null;
+	paymentMethod?: { id: number; nickname: string; lastFour: string } | null;
 }
 
 // Filter options for bills list
@@ -49,6 +54,7 @@ export interface BillFormData {
 	dueDate: Date;
 	paymentLink?: string;
 	categoryId?: number | null;
+	assetTagId?: number | null;
 	isRecurring: boolean;
 	recurrenceInterval?: number;
 	recurrenceUnit?: RecurrenceUnit;

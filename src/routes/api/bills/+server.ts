@@ -3,6 +3,7 @@ import type { RequestHandler } from './$types';
 import { createBill, getAllBills } from '$lib/server/db/queries';
 import type { NewBill } from '$lib/server/db/schema';
 import { parseLocalDate } from '$lib/utils/dates';
+import { endOfDay } from 'date-fns';
 
 // GET /api/bills - Get all bills
 export const GET: RequestHandler = async ({ url }) => {
@@ -52,10 +53,10 @@ export const POST: RequestHandler = async ({ request }) => {
 		try {
 			if (typeof data.dueDate === 'string' && data.dueDate.includes('T')) {
 				// ISO timestamp format: "2025-11-24T06:00:00.000Z"
-				dueDate = new Date(data.dueDate);
+				dueDate = endOfDay(new Date(data.dueDate));
 			} else {
 				// YYYY-MM-DD format
-				dueDate = parseLocalDate(data.dueDate);
+				dueDate = endOfDay(parseLocalDate(data.dueDate));
 			}
 		} catch (error) {
 			console.error('Error parsing due date:', { dueDate: data.dueDate, error });
@@ -71,6 +72,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			dueDate,
 			paymentLink: data.paymentLink || null,
 			categoryId: data.categoryId || null,
+			assetTagId: data.assetTagId ? parseInt(data.assetTagId) : null,
 			isRecurring: data.isRecurring || false,
 			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : null,
 			recurrenceUnit: data.recurrenceUnit || null,

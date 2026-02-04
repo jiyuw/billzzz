@@ -6,9 +6,8 @@ async function seedBills() {
 	try {
 		// Get categories
 		const allCategories = await db.select().from(categories);
-		const utilitiesCategory = allCategories.find((c) => c.name === 'Utilities');
-		const subscriptionsCategory = allCategories.find((c) => c.name === 'Subscriptions');
-		const rentCategory = allCategories.find((c) => c.name === 'Rent/Mortgage');
+		const utilitiesCategory = allCategories.find((c) => c.name === 'Utility');
+		const rentCategory = allCategories.find((c) => c.name === 'Mortgage');
 		const insuranceCategory = allCategories.find((c) => c.name === 'Insurance');
 
 		const sampleBills = [
@@ -30,7 +29,7 @@ async function seedBills() {
 				amount: 15.99,
 				dueDate: addDays(new Date(), 2),
 				paymentLink: 'https://netflix.com',
-				categoryId: subscriptionsCategory?.id || null,
+				categoryId: utilitiesCategory?.id || null,
 				isRecurring: true,
 				recurrenceInterval: 1,
 				recurrenceUnit: 'month',
@@ -77,7 +76,7 @@ async function seedBills() {
 				name: 'Spotify Premium',
 				amount: 10.99,
 				dueDate: addDays(new Date(), 1),
-				categoryId: subscriptionsCategory?.id || null,
+				categoryId: utilitiesCategory?.id || null,
 				isRecurring: true,
 				recurrenceInterval: 1,
 				recurrenceUnit: 'month',

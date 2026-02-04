@@ -7,6 +7,7 @@ import {
 	getImportedTransactionsBySession,
 	getImportSession,
 	getAllCategories,
+	getAllAssetTags,
 	getAllBills,
 	createBill,
 	updateImportedTransaction,
@@ -44,6 +45,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		// Filter out already processed transactions (e.g., income that was auto-processed)
 		const transactions = allTransactions.filter(t => !t.transaction.isProcessed);
 		const categories = getAllCategories();
+		const assetTags = getAllAssetTags();
 		const existingBills = getAllBills();
 			const buckets = await getAllBucketsWithCurrentCycle();
 			const { getAllAccounts } = await import('$lib/server/db/queries');
@@ -54,6 +56,7 @@ export const load: PageServerLoad = async ({ url }) => {
 				session,
 				transactions,
 				categories,
+				assetTags,
 				existingBills,
 				buckets,
 				accounts
@@ -64,6 +67,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		sessionId: null,
 		transactions: [],
 		categories: [],
+		assetTags: [],
 		existingBills: [],
 		buckets: [],
 		accounts: []
@@ -232,6 +236,7 @@ export const actions: Actions = {
 					amount,
 					dueDate,
 					categoryId,
+					assetTagId,
 					isRecurring,
 					recurrenceInterval,
 					recurrenceUnit,
@@ -318,6 +323,7 @@ export const actions: Actions = {
 								amount,
 								dueDate: billDueDate,
 								categoryId: categoryId || null,
+								assetTagId: assetTagId || null,
 								isRecurring: isRecurring || false,
 								recurrenceInterval: isRecurring ? (recurrenceInterval ? parseInt(recurrenceInterval) : 1) : null,
 								recurrenceUnit: isRecurring ? (recurrenceUnit || 'month') : null,

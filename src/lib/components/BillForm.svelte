@@ -4,9 +4,11 @@
 	import { format } from 'date-fns';
 	import Button from '$lib/components/Button.svelte';
 	import type { PaymentMethod } from '$lib/server/db/schema';
+	import type { AssetTag } from '$lib/server/db/schema';
 
 	interface Props {
 		categories: Category[];
+		assetTags?: AssetTag[];
 		paymentMethods?: PaymentMethod[];
 		initialData?: {
 			name?: string;
@@ -14,6 +16,7 @@
 			dueDate?: Date;
 			paymentLink?: string;
 			categoryId?: number | null;
+			assetTagId?: number | null;
 			isRecurring?: boolean;
 			recurrenceInterval?: number | null;
 			recurrenceUnit?: RecurrenceUnit | null;
@@ -30,6 +33,7 @@
 
 	let {
 		categories,
+		assetTags = [],
 		paymentMethods = [],
 		initialData,
 		onSubmit,
@@ -42,6 +46,7 @@
 	let dueDate = $state(format(new Date(), 'yyyy-MM-dd'));
 	let paymentLink = $state('');
 	let categoryId = $state<number | null>(null);
+	let assetTagId = $state<number | null>(null);
 	let isRecurring = $state(false);
 	let recurrenceInterval = $state(1);
 	let recurrenceUnit = $state<RecurrenceUnit>('month');
@@ -59,6 +64,7 @@
 		dueDate = initialData?.dueDate ? format(initialData.dueDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd');
 		paymentLink = initialData?.paymentLink || '';
 		categoryId = initialData?.categoryId || null;
+		assetTagId = initialData?.assetTagId || null;
 		isRecurring = initialData?.isRecurring || false;
 		recurrenceInterval = initialData?.recurrenceInterval || 1;
 		recurrenceUnit = initialData?.recurrenceUnit || 'month';
@@ -84,6 +90,7 @@
 				dueDate: localDate,
 				paymentLink: paymentLink || null,
 				categoryId,
+				assetTagId,
 				isRecurring,
 				recurrenceInterval: isRecurring ? recurrenceInterval : null,
 				recurrenceUnit: isRecurring ? recurrenceUnit : null,
@@ -196,9 +203,22 @@
 		>
 			<option value={null}>No Category</option>
 			{#each categories as category}
-				<option value={category.id}>
-					{category.icon} {category.name}
-				</option>
+				<option value={category.id}>{category.name}</option>
+			{/each}
+		</select>
+	</div>
+
+	<!-- Asset Tag -->
+	<div>
+		<label for="assetTag" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Asset Tag</label>
+		<select
+			id="assetTag"
+			bind:value={assetTagId}
+			class="mt-1 block w-full rounded-md border border-gray-300 bg-white text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
+		>
+			<option value={null}>No Asset Tag</option>
+			{#each assetTags as tag}
+				<option value={tag.id}>{tag.name}</option>
 			{/each}
 		</select>
 	</div>

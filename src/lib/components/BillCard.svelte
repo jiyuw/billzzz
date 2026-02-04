@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { BillWithCategory, BillWithCycle } from '$lib/types/bill';
-	import StatusIndicator from './StatusIndicator.svelte';
-	import CategoryBadge from './CategoryBadge.svelte';
-	import { format } from 'date-fns';
+import StatusIndicator from './StatusIndicator.svelte';
+import CategoryBadge from './CategoryBadge.svelte';
+import { format } from 'date-fns';
+import { Home, Car, HelpCircle } from 'lucide-svelte';
 	import { getRecurrenceDescription } from '$lib/utils/recurrence';
 	import { goto } from '$app/navigation';
 	import { formatCurrency } from '$lib/utils/format';
@@ -19,8 +20,18 @@
 	// Check if bill has cycle info
 	const billWithCycle = $derived('currentCycle' in bill ? bill as BillWithCycle : null);
 	const currentCycle = $derived(billWithCycle?.currentCycle);
+	const focusCycle = $derived(billWithCycle?.focusCycle ?? billWithCycle?.currentCycle);
+	const focusDueDate = $derived(focusCycle?.endDate ?? bill.dueDate);
 	const usageStats = $derived(billWithCycle?.usageStats ?? null);
-	const hasCurrentPayments = $derived((currentCycle?.totalPaid ?? 0) > 0);
+	const hasCurrentPayments = $derived((focusCycle?.totalPaid ?? 0) > 0);
+	const isBillPaid = $derived.by(() => {
+		const cycle = focusCycle ?? currentCycle;
+		if (!cycle) return false;
+		if (bill.isVariable) {
+			return cycle.totalPaid > 0 || cycle.isPaid;
+		}
+		return cycle.isPaid || cycle.totalPaid >= cycle.expectedAmount;
+	});
 	const isCyclePaid = $derived.by(() => {
 		if (!currentCycle) return false;
 		if (currentCycle.expectedAmount > 0) {
@@ -28,15 +39,7 @@
 		}
 		return currentCycle.totalPaid > 0;
 	});
-	const usageDensity = $derived.by(() => {
-		if (!usageStats) return 0;
-		if (usageStats.max === usageStats.min) return 100;
-		return Math.min(
-			Math.max(((usageStats.average - usageStats.min) / (usageStats.max - usageStats.min)) * 100, 0),
-			100
-		);
-	});
-	const currentPaid = $derived(currentCycle?.totalPaid ?? 0);
+	const currentPaid = $derived(focusCycle?.totalPaid ?? 0);
 	const usageDotPosition = $derived.by(() => {
 		if (!usageStats) return 0;
 		if (usageStats.max === usageStats.min) return 50;
@@ -57,7 +60,7 @@
 
 	async function handleTogglePaid() {
 		if (onTogglePaid) {
-			onTogglePaid(bill.id, !bill.isPaid);
+			onTogglePaid(bill.id, !isBillPaid);
 		}
 	}
 
@@ -82,11 +85,26 @@
 	onkeydown={(e) => e.key === 'Enter' && handleCardClick(e)}
 >
 	<div class="p-4">
-		<div class="mb-2 flex items-center gap-2">
+		<div class="mb-1 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+			{#if 'assetTag' in bill && bill.assetTag}
+				{#if bill.assetTag.type === 'house'}
+					<Home size={14} />
+				{:else if bill.assetTag.type === 'vehicle'}
+					<Car size={14} />
+				{:else}
+					<HelpCircle size={14} />
+				{/if}
+				{bill.assetTag.name}
+			{:else}
+				<HelpCircle size={14} />
+				Unknown Asset
+			{/if}
+		</div>
+		<div class="mb-2 flex flex-wrap items-center gap-2">
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{bill.name}</h3>
 			{#if bill.isRecurring}
 				<span
-					class="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs text-blue-700 dark:bg-blue-950 dark:text-blue-400"
+					class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium leading-none text-blue-700 dark:bg-blue-950 dark:text-blue-400"
 					title={bill.recurrenceUnit && bill.recurrenceInterval
 						? getRecurrenceDescription(bill.recurrenceInterval, bill.recurrenceUnit as any, bill.recurrenceDay)
 						: ''}
@@ -103,7 +121,7 @@
 			{/if}
 			{#if bill.isAutopay}
 				<span
-					class="inline-flex items-center gap-1 rounded-md bg-green-50 px-2 py-0.5 text-xs text-green-700 dark:bg-green-950 dark:text-green-400"
+					class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium leading-none text-green-700 dark:bg-green-950 dark:text-green-400"
 					title="This bill is set to autopay"
 				>
 					<svg class="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
@@ -121,9 +139,14 @@
 			{/if}
 		</div>
 
-		<div class="mb-3 flex items-center gap-3">
-			<StatusIndicator dueDate={bill.dueDate} isPaid={bill.isPaid} />
-			<CategoryBadge category={'category' in bill ? bill.category : undefined} />
+		<div class="mb-3 flex flex-wrap items-center gap-2">
+			<StatusIndicator
+				dueDate={focusDueDate}
+				isPaid={isBillPaid}
+			/>
+			{#if 'category' in bill && bill.category}
+				<CategoryBadge category={bill.category} />
+			{/if}
 		</div>
 
 		<div class="grid grid-cols-2 gap-3 text-sm">
@@ -140,7 +163,9 @@
 			</div>
 			<div>
 				<span class="text-gray-500 dark:text-gray-400">Due:</span>
-				<span class="ml-2 font-medium text-gray-900 dark:text-gray-100">{format(bill.dueDate, 'MMM d, yyyy')}</span>
+				<span class="ml-2 font-medium text-gray-900 dark:text-gray-100">
+					{format(focusDueDate, 'MMM d, yyyy')}
+				</span>
 			</div>
 		</div>
 
@@ -159,7 +184,7 @@
 					{#if hasCurrentPayments}
 						<div
 							class="h-2 rounded-full transition-all bg-green-200"
-							style="width: {usageStats ? usageDensity : 0}%"
+							style="width: 100%"
 						></div>
 						{#if usageStats}
 							<div
@@ -175,25 +200,25 @@
 					<span>{usageStats ? `Max: ${formatCurrency(usageStats.max)}` : 'Max: —'}</span>
 				</div>
 			</div>
-		{:else if currentCycle}
+		{:else if focusCycle}
 			<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
 				<div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
 					<span>Current Cycle</span>
-					<span>{currentCycle.percentPaid.toFixed(0)}% paid</span>
+					<span>{focusCycle.percentPaid.toFixed(0)}% paid</span>
 				</div>
 				<div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
 					<div
-						class="h-2 rounded-full transition-all {currentCycle.isPaid || currentCycle.totalPaid >= currentCycle.expectedAmount
+						class="h-2 rounded-full transition-all {focusCycle.isPaid || focusCycle.totalPaid >= focusCycle.expectedAmount
 							? 'bg-green-500'
-							: currentCycle.totalPaid > 0
+							: focusCycle.totalPaid > 0
 							? 'bg-yellow-500'
 							: 'bg-gray-300 dark:bg-gray-600'}"
-						style="width: {currentCycle.percentPaid}%"
+						style="width: {focusCycle.percentPaid}%"
 					></div>
 				</div>
 				<div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-1">
-					<span>${currentCycle.totalPaid.toFixed(2)} paid</span>
-					<span>${currentCycle.remaining.toFixed(2)} remaining</span>
+					<span>${focusCycle.totalPaid.toFixed(2)} paid</span>
+					<span>${focusCycle.remaining.toFixed(2)} remaining</span>
 				</div>
 			</div>
 		{/if}

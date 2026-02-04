@@ -28,7 +28,8 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 
 		const updateData: Partial<NewPaymentMethod> = {
 			nickname: data.nickname,
-			lastFour: data.lastFour
+			lastFour: data.lastFour,
+			type: data.type ?? null
 		};
 
 		Object.keys(updateData).forEach(

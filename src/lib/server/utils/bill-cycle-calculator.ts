@@ -31,7 +31,8 @@ export function calculateBillCycleDates(
 	const dueDate = startOfDay(bill.dueDate);
 	const ref = startOfDay(referenceDate);
 
-	let cycleStart = dueDate;
+	// Cycles should start the day after the due date, so the due date is the cycle end.
+	let cycleStart = addDays(dueDate, 1);
 
 	// Move forward from due date to find the cycle containing the reference date
 	while (isBefore(getCycleEnd(bill.recurrenceUnit, bill.recurrenceInterval, cycleStart), ref)) {

@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { Category } from '$lib/types/bill';
 	import {
+		Zap,
+		ShieldCheck,
+		Home,
+		Receipt,
 		ShoppingCart,
 		Fuel,
 		Utensils,
@@ -10,7 +14,6 @@
 		Gamepad2,
 		Smartphone,
 		Shirt,
-		Home,
 		Dog,
 		Heart
 	} from 'lucide-svelte';
@@ -22,6 +25,10 @@
 	let { category }: Props = $props();
 
 	const iconMap = {
+		utility: Zap,
+		insurance: ShieldCheck,
+		mortgage: Home,
+		fee: Receipt,
 		'shopping-cart': ShoppingCart,
 		'fuel': Fuel,
 		'utensils': Utensils,
@@ -41,11 +48,13 @@
 
 {#if category}
 	<span
-		class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium"
+		class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium leading-none"
 		style="background-color: {category.color}20; color: {category.color}; border: 1px solid {category.color}40;"
 	>
 		{#if IconComponent}
-			<IconComponent size={14} />
+			<IconComponent size={12} />
+		{:else if category.icon}
+			<span class="text-xs leading-none">{category.icon}</span>
 		{/if}
 		{category.name}
 	</span>

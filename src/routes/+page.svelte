@@ -8,14 +8,15 @@
 	import FloatingActionButton from '$lib/components/FloatingActionButton.svelte';
 	import type { BillWithCategory } from '$lib/types/bill';
 	import { invalidateAll } from '$app/navigation';
-	import { format } from 'date-fns';
+import { format, endOfDay } from 'date-fns';
 
 	let { data }: { data: PageData } = $props();
 
 	let filterStatus = $state<string>('all');
 	let filterCategory = $state<number | null | 'uncategorized'>(null);
+	let filterAssetTag = $state<number | null | 'none'>(null);
 	let searchQuery = $state('');
-	let sortField = $state<'dueDate' | 'amount' | 'name'>('dueDate');
+	let sortField = $state<'assetTag' | 'name'>('assetTag');
 	let sortDirection = $state<'asc' | 'desc'>('asc');
 	let showAddModal = $state(false);
 	let showEditModal = $state(false);
@@ -34,17 +35,27 @@
 	const filteredBills = $derived.by(() => {
 		let bills = data.bills as BillWithCategory[];
 
+		const isBillPaid = (bill: BillWithCategory | BillWithCycle) => {
+			if ('focusCycle' in bill) {
+				const cycle = bill.focusCycle ?? bill.currentCycle;
+				if (!cycle) return false;
+				if ((bill as BillWithCycle).isVariable) {
+					return cycle.totalPaid > 0 || cycle.isPaid;
+				}
+				return cycle.isPaid || cycle.totalPaid >= cycle.expectedAmount;
+			}
+			return false;
+		};
+
 		// Apply status filter
 		if (filterStatus !== 'all') {
 			const now = new Date();
 			bills = bills.filter((bill) => {
-				if (filterStatus === 'paid') return bill.isPaid;
-				if (filterStatus === 'unpaid') return !bill.isPaid;
-				if (filterStatus === 'overdue') return !bill.isPaid && bill.dueDate <= now;
-				if (filterStatus === 'upcoming') {
-					const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-					return !bill.isPaid && bill.dueDate > now && bill.dueDate <= sevenDaysFromNow;
-				}
+				const paid = isBillPaid(bill);
+				const dueAt = endOfDay(bill.dueDate);
+				if (filterStatus === 'paid') return paid;
+				if (filterStatus === 'unpaid') return !paid;
+				if (filterStatus === 'overdue') return !paid && dueAt <= now;
 				return true;
 			});
 		}
@@ -55,6 +66,15 @@
 				bills = bills.filter((bill) => bill.categoryId === null);
 			} else {
 				bills = bills.filter((bill) => bill.categoryId === filterCategory);
+			}
+		}
+
+		// Apply asset tag filter
+		if (filterAssetTag !== null) {
+			if (filterAssetTag === 'none') {
+				bills = bills.filter((bill) => bill.assetTagId === null);
+			} else {
+				bills = bills.filter((bill) => bill.assetTagId === filterAssetTag);
 			}
 		}
 
@@ -72,12 +92,11 @@
 		bills = [...bills].sort((a, b) => {
 			let aVal, bVal;
 
-			if (sortField === 'dueDate') {
-				aVal = a.dueDate.getTime();
-				bVal = b.dueDate.getTime();
-			} else if (sortField === 'amount') {
-				aVal = a.amount;
-				bVal = b.amount;
+			if (sortField === 'assetTag') {
+				const aTag = a.assetTag?.name?.toLowerCase() ?? '';
+				const bTag = b.assetTag?.name?.toLowerCase() ?? '';
+				aVal = aTag;
+				bVal = bTag;
 			} else {
 				aVal = a.name.toLowerCase();
 				bVal = b.name.toLowerCase();
@@ -114,14 +133,14 @@
 		}
 	}
 
-	async function handleConfirmPayment(amount: number, paymentDate: string) {
+	async function handleConfirmPayment(amount: number, paymentDate: string, cycleId: number | null) {
 		if (payingBillId === null) return;
 
 		try {
 			const response = await fetch(`/api/bills/${payingBillId}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate })
+				body: JSON.stringify({ isPaid: true, paymentAmount: amount, paymentDate, paymentCycleId: cycleId })
 			});
 
 			if (response.ok) {
@@ -159,6 +178,7 @@
 	function resetFilters() {
 		filterStatus = 'all';
 		filterCategory = null;
+		filterAssetTag = null;
 		searchQuery = '';
 	}
 
@@ -342,7 +362,6 @@
 						<option value="unpaid">Unpaid</option>
 						<option value="paid">Paid</option>
 						<option value="overdue">Overdue</option>
-						<option value="upcoming">Upcoming</option>
 					</select>
 
 					<select
@@ -352,7 +371,17 @@
 						<option value={null}>All Categories</option>
 						<option value="uncategorized">Uncategorized</option>
 						{#each data.categories as category}
-							<option value={category.id}>{category.icon} {category.name}</option>
+							<option value={category.id}>{category.name}</option>
+						{/each}
+					</select>
+					<select
+						bind:value={filterAssetTag}
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
+					>
+						<option value={null}>All Assets</option>
+						<option value="none">Unknown Asset</option>
+						{#each data.assetTags as tag}
+							<option value={tag.id}>{tag.name}</option>
 						{/each}
 					</select>
 				</div>
@@ -363,8 +392,7 @@
 						bind:value={sortField}
 						class="flex-1 rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
 					>
-						<option value="dueDate">Sort: Due Date</option>
-						<option value="amount">Sort: Amount</option>
+						<option value="assetTag">Sort: Asset Tag</option>
 						<option value="name">Sort: Name</option>
 					</select>
 
@@ -396,7 +424,7 @@
 				</div>
 
 				<!-- Row 4: Reset button if needed -->
-				{#if filterStatus !== 'all' || filterCategory !== null || searchQuery}
+				{#if filterStatus !== 'all' || filterCategory !== null || filterAssetTag !== null || searchQuery}
 					<Button variant="secondary" fullWidth onclick={resetFilters}>
 						Reset Filters
 					</Button>
@@ -415,7 +443,6 @@
 						<option value="unpaid">Unpaid</option>
 						<option value="paid">Paid</option>
 						<option value="overdue">Overdue</option>
-						<option value="upcoming">Upcoming</option>
 					</select>
 
 					<!-- Category Filter -->
@@ -426,7 +453,19 @@
 						<option value={null}>All Categories</option>
 						<option value="uncategorized">Uncategorized</option>
 						{#each data.categories as category}
-							<option value={category.id}>{category.icon} {category.name}</option>
+							<option value={category.id}>{category.name}</option>
+						{/each}
+					</select>
+
+					<!-- Asset Tag Filter -->
+					<select
+						bind:value={filterAssetTag}
+						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
+					>
+						<option value={null}>All Assets</option>
+						<option value="none">Unknown Asset</option>
+						{#each data.assetTags as tag}
+							<option value={tag.id}>{tag.name}</option>
 						{/each}
 					</select>
 
@@ -443,8 +482,7 @@
 						bind:value={sortField}
 						class="rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 text-sm focus:border-blue-500 focus:ring-blue-500"
 					>
-						<option value="dueDate">Sort by Due Date</option>
-						<option value="amount">Sort by Amount</option>
+						<option value="assetTag">Sort by Asset Tag</option>
 						<option value="name">Sort by Name</option>
 					</select>
 
@@ -475,7 +513,7 @@
 						{/if}
 					</Button>
 
-					{#if filterStatus !== 'all' || filterCategory !== null || searchQuery}
+					{#if filterStatus !== 'all' || filterCategory !== null || filterAssetTag !== null || searchQuery}
 						<Button variant="ghost" size="sm" onclick={resetFilters}>
 							Reset filters
 						</Button>
@@ -559,6 +597,7 @@
 	<Modal bind:isOpen={showAddModal} onClose={handleCloseModal} title="Add New Bill">
 		<BillForm
 			categories={data.categories}
+			assetTags={data.assetTags}
 			paymentMethods={data.paymentMethods}
 			onSubmit={handleAddBill}
 			onCancel={handleCloseModal}
@@ -572,6 +611,7 @@
 	<Modal bind:isOpen={showEditModal} onClose={handleCloseEditModal} title="Edit Bill">
 		<BillForm
 			categories={data.categories}
+			assetTags={data.assetTags}
 			paymentMethods={data.paymentMethods}
 			initialData={{
 				name: editingBill.name,
@@ -579,6 +619,7 @@
 				dueDate: editingBill.dueDate,
 				paymentLink: editingBill.paymentLink || undefined,
 				categoryId: editingBill.categoryId,
+				assetTagId: editingBill.assetTagId ?? undefined,
 				isRecurring: editingBill.isRecurring,
 				recurrenceInterval: editingBill.recurrenceInterval || undefined,
 				recurrenceUnit: editingBill.recurrenceUnit || undefined,
@@ -600,6 +641,7 @@
 	<PaymentModal
 		bind:isOpen={showPaymentModal}
 		bill={payingBill}
+		focusCycleId={payingBill.focusCycle?.id ?? null}
 		onConfirm={handleConfirmPayment}
 		onCancel={handleCancelPayment}
 	/>

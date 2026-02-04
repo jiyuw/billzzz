@@ -58,6 +58,7 @@
 			amount: number;
 			dueDate?: string;
 			categoryId?: number;
+			assetTagId?: number;
 			isRecurring?: boolean;
 			recurrenceInterval?: number;
 			recurrenceUnit?: string;
@@ -181,6 +182,7 @@
 									existingBills={data.existingBills}
 									buckets={data.buckets}
 									categories={data.categories}
+									assetTags={data.assetTags}
 									accounts={data.accounts}
 									{iconMap}
 								/>

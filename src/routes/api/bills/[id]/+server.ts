@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getBillById, updateBill, deleteBill, markBillAsPaid } from '$lib/server/db/queries';
-import { createPayment } from '$lib/server/db/bill-queries';
+import { createPayment, createPaymentForCycle, getFocusCycleForBill } from '$lib/server/db/bill-queries';
 import { calculateNextDueDate } from '$lib/server/utils/recurrence';
 import { parseLocalDate } from '$lib/utils/dates';
+import { endOfDay } from 'date-fns';
 
 // GET /api/bills/[id] - Get a single bill
 export const GET: RequestHandler = async ({ params }) => {
@@ -34,10 +35,10 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 			try {
 				if (data.dueDate.includes('T')) {
 					// ISO timestamp format: "2025-10-31T05:00:00.000Z"
-					parsedDueDate = new Date(data.dueDate.split('T')[0] + 'T00:00:00Z');
+					parsedDueDate = endOfDay(new Date(data.dueDate));
 				} else {
 					// YYYY-MM-DD format
-					parsedDueDate = parseLocalDate(data.dueDate);
+					parsedDueDate = endOfDay(parseLocalDate(data.dueDate));
 				}
 			} catch (error) {
 				console.error('Error parsing due date:', { dueDate: data.dueDate, error });
@@ -54,6 +55,7 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 			dueDate: parsedDueDate,
 			paymentLink: data.paymentLink,
 			categoryId: data.categoryId,
+			assetTagId: data.assetTagId ? parseInt(data.assetTagId) : undefined,
 			isRecurring: data.isRecurring,
 			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : undefined,
 			recurrenceUnit: data.recurrenceUnit,
@@ -112,7 +114,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 export const PATCH: RequestHandler = async ({ params, request }) => {
 	try {
 		const id = parseInt(params.id);
-		const { isPaid, paymentAmount, paymentDate } = await request.json();
+		const { isPaid, paymentAmount, paymentDate, paymentCycleId } = await request.json();
 
 		const currentBill = getBillById(id);
 		if (!currentBill) {
@@ -126,34 +128,44 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 				? `Payment recorded. Original amount: $${currentBill.amount.toFixed(2)}`
 				: 'Payment recorded';
 			const parsedPaymentDate = paymentDate ? parseLocalDate(paymentDate) : new Date();
-			await createPayment({
-				billId: id,
-				amount: amountPaid,
-				paymentDate: parsedPaymentDate,
-				notes: note
-			});
+			const cycleId = paymentCycleId ? parseInt(paymentCycleId) : null;
+			if (cycleId) {
+				await createPaymentForCycle(
+					{
+						billId: id,
+						amount: amountPaid,
+						paymentDate: parsedPaymentDate,
+						notes: note
+					},
+					cycleId
+				);
+			} else {
+				await createPayment({
+					billId: id,
+					amount: amountPaid,
+					paymentDate: parsedPaymentDate,
+					notes: note
+				});
+			}
 		}
 
-		// If marking as paid and bill is recurring, calculate next due date
-		if (isPaid && currentBill.isRecurring && currentBill.recurrenceUnit && currentBill.recurrenceInterval) {
-			const nextDueDate = calculateNextDueDate(
-				currentBill.dueDate,
-				currentBill.recurrenceInterval,
-				currentBill.recurrenceUnit as any,
-				currentBill.recurrenceDay
-			);
-
-			const bill = updateBill(id, {
-				isPaid: false, // Reset to unpaid for next occurrence
-				dueDate: nextDueDate
-			});
-
-			return json(bill);
-		} else {
-			// Just mark as paid/unpaid
-			const bill = markBillAsPaid(id, isPaid);
+		if (isPaid) {
+			const focusCycle = await getFocusCycleForBill(id);
+			let shouldMarkPaid = false;
+			if (focusCycle) {
+				if (currentBill.isVariable) {
+					shouldMarkPaid = focusCycle.totalPaid > 0 || focusCycle.isPaid;
+				} else {
+					shouldMarkPaid = focusCycle.isPaid || focusCycle.totalPaid >= focusCycle.expectedAmount;
+				}
+			}
+			const bill = updateBill(id, { isPaid: shouldMarkPaid });
 			return json(bill);
 		}
+
+		// Do not auto-advance due dates. Just mark as unpaid.
+		const bill = markBillAsPaid(id, false);
+		return json(bill);
 	} catch (error) {
 		console.error('Error updating bill status:', error);
 		return json({ error: 'Failed to update bill status' }, { status: 500 });

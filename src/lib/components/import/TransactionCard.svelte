@@ -5,6 +5,7 @@
 	import BucketMappingForm from './BucketMappingForm.svelte';
 	import TransferMappingForm from './TransferMappingForm.svelte';
 	import type { Category, BillWithCategory } from '$lib/types/bill';
+	import type { AssetTag } from '$lib/server/db/schema';
 	import { formatDateForInput } from '$lib/utils/dates';
 
 	type MappingAction =
@@ -50,6 +51,7 @@
 		amount: number;
 		dueDate?: string;
 		categoryId?: number;
+		assetTagId?: number;
 		isRecurring?: boolean;
 		bucketId?: number;
 		bucketName?: string;
@@ -67,6 +69,7 @@
 		existingBills,
 		buckets,
 		categories,
+		assetTags,
 		accounts,
 		iconMap
 	}: {
@@ -76,6 +79,8 @@
 		existingBills: BillWithCategory[];
 		buckets: Bucket[];
 		categories: Category[];
+		assetTags: AssetTag[];
+		assetTags: AssetTag[];
 		accounts: Account[];
 		iconMap: Record<string, any>;
 	} = $props();
@@ -188,8 +193,10 @@
 							bind:billName={mapping.billName}
 							bind:dueDate={mapping.dueDate}
 							bind:categoryId={mapping.categoryId}
+							bind:assetTagId={mapping.assetTagId}
 							bind:isRecurring={mapping.isRecurring}
 							{categories}
+							{assetTags}
 						/>
 					{/if}
 
