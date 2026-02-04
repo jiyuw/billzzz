@@ -1,1 +1,0 @@
-ALTER TABLE `imported_transactions` ADD `mapped_bucket_id` integer REFERENCES buckets(id);

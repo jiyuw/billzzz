@@ -46,7 +46,7 @@
 		type: 'credit_card'
 	});
 
-	// Icon options for categories (same as buckets)
+	// Icon options for categories (preset set)
 	const iconOptions = [
 		{ id: 'utility', component: Zap, label: 'Utility' },
 		{ id: 'insurance', component: ShieldCheck, label: 'Insurance' },

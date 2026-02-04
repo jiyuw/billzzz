@@ -54,8 +54,8 @@
 				<div class="flex-1">
 					<h3 class="text-sm font-medium text-red-900 dark:text-red-200">Reset All Data</h3>
 					<p class="mt-1 text-sm text-red-700 dark:text-red-300">
-						Permanently delete all bills, buckets, debts, categories, payment history, and
-						settings. This action cannot be undone.
+						Permanently delete all bills, categories, asset tags, payment methods, payment
+						history, and settings. This action cannot be undone.
 					</p>
 					<Button variant="danger" size="md" onclick={onReset} class="mt-3">
 						<svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

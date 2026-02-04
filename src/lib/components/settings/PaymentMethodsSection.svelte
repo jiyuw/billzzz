@@ -22,7 +22,7 @@
 			<div>
 				<h2 class="text-xl font-semibold text-gray-900 dark:text-gray-100">Payment Methods</h2>
 				<p class="mt-1 text-sm text-gray-600 dark:text-gray-300">
-					Manage the cards or accounts used for autopay.
+					Manage the payment methods used for autopay.
 				</p>
 			</div>
 			<Button variant="primary" size="md" onclick={onAdd}>

@@ -7,16 +7,7 @@ import {
 	billCycles,
 	billPayments,
 	categories,
-	buckets,
-	bucketCycles,
-	bucketTransactions,
-	debts,
-	debtPayments,
-	debtStrategySettings,
-	paydaySettings,
-	importSessions,
-	importedTransactions,
-	accounts,
+	assetTags,
 	paymentMethods,
 	userPreferences
 } from '$lib/server/db/schema';
@@ -26,17 +17,12 @@ interface ImportData {
 	exportDate: string;
 	data: {
 		categories: any[];
+		assetTags?: any[];
 		bills: any[];
 		billCycles: any[];
 		billPayments: any[];
-		buckets: any[];
-		bucketCycles: any[];
-		bucketTransactions: any[];
-		debts: any[];
-		debtPayments: any[];
-		debtStrategySettings: any[];
-		paydaySettings: any[];
 		paymentMethods?: any[];
+		userPreferences?: any[];
 	};
 }
 
@@ -105,34 +91,22 @@ export const actions: Actions = {
 			}
 
 			// Clear existing data (in reverse order due to foreign key constraints)
-			db.delete(bucketTransactions).run();
-			db.delete(bucketCycles).run();
-			db.delete(buckets).run();
 			db.delete(billPayments).run();
 			db.delete(billCycles).run();
 			db.delete(bills).run();
 			db.delete(paymentMethods).run();
-			db.delete(debtPayments).run();
-			db.delete(debts).run();
-			db.delete(debtStrategySettings).run();
-			db.delete(paydaySettings).run();
-			db.delete(paymentMethods).run();
+			db.delete(assetTags).run();
 			db.delete(categories).run();
+			db.delete(userPreferences).run();
 
 			let importedCounts = {
 				categories: 0,
+				assetTags: 0,
 				bills: 0,
 				billCycles: 0,
 				billPayments: 0,
-				buckets: 0,
-				bucketCycles: 0,
-				bucketTransactions: 0,
-				debts: 0,
-				debtPayments: 0,
-				debtStrategySettings: 0,
-				paydaySettings: 0
-				,
-				paymentMethods: 0
+				paymentMethods: 0,
+				userPreferences: 0
 			};
 
 			// Import data (in order to respect foreign key constraints)
@@ -142,10 +116,10 @@ export const actions: Actions = {
 				importedCounts.categories = importData.data.categories.length;
 			}
 
-			if (importData.data.paydaySettings?.length > 0) {
-				const convertedPaydaySettings = convertDatesToObjects(importData.data.paydaySettings);
-				db.insert(paydaySettings).values(convertedPaydaySettings).run();
-				importedCounts.paydaySettings = importData.data.paydaySettings.length;
+			if (importData.data.assetTags?.length > 0) {
+				const convertedAssetTags = convertDatesToObjects(importData.data.assetTags);
+				db.insert(assetTags).values(convertedAssetTags).run();
+				importedCounts.assetTags = importData.data.assetTags.length;
 			}
 
 			if (importData.data.paymentMethods?.length > 0) {
@@ -171,44 +145,10 @@ export const actions: Actions = {
 				importedCounts.billPayments = importData.data.billPayments.length;
 			}
 
-			if (importData.data.buckets?.length > 0) {
-				const convertedBuckets = convertDatesToObjects(importData.data.buckets);
-				db.insert(buckets).values(convertedBuckets).run();
-				importedCounts.buckets = importData.data.buckets.length;
-			}
-
-			if (importData.data.bucketCycles?.length > 0) {
-				const convertedBucketCycles = convertDatesToObjects(importData.data.bucketCycles);
-				db.insert(bucketCycles).values(convertedBucketCycles).run();
-				importedCounts.bucketCycles = importData.data.bucketCycles.length;
-			}
-
-			if (importData.data.bucketTransactions?.length > 0) {
-				const convertedBucketTransactions = convertDatesToObjects(
-					importData.data.bucketTransactions
-				);
-				db.insert(bucketTransactions).values(convertedBucketTransactions).run();
-				importedCounts.bucketTransactions = importData.data.bucketTransactions.length;
-			}
-
-			if (importData.data.debts?.length > 0) {
-				const convertedDebts = convertDatesToObjects(importData.data.debts);
-				db.insert(debts).values(convertedDebts).run();
-				importedCounts.debts = importData.data.debts.length;
-			}
-
-			if (importData.data.debtPayments?.length > 0) {
-				const convertedDebtPayments = convertDatesToObjects(importData.data.debtPayments);
-				db.insert(debtPayments).values(convertedDebtPayments).run();
-				importedCounts.debtPayments = importData.data.debtPayments.length;
-			}
-
-			if (importData.data.debtStrategySettings?.length > 0) {
-				const convertedDebtStrategySettings = convertDatesToObjects(
-					importData.data.debtStrategySettings
-				);
-				db.insert(debtStrategySettings).values(convertedDebtStrategySettings).run();
-				importedCounts.debtStrategySettings = importData.data.debtStrategySettings.length;
+			if (importData.data.userPreferences?.length > 0) {
+				const convertedPrefs = convertDatesToObjects(importData.data.userPreferences);
+				db.insert(userPreferences).values(convertedPrefs).run();
+				importedCounts.userPreferences = importData.data.userPreferences.length;
 			}
 
 			console.log('Import successful:', importedCounts);
@@ -237,29 +177,13 @@ export const actions: Actions = {
 			}
 
 			// Delete all data (in reverse order due to foreign key constraints)
-			db.delete(importedTransactions).run();
-			db.delete(importSessions).run();
-			db.delete(accounts).run();
-			db.delete(bucketTransactions).run();
-			db.delete(bucketCycles).run();
-			db.delete(buckets).run();
 			db.delete(billPayments).run();
 			db.delete(billCycles).run();
 			db.delete(bills).run();
-			db.delete(debtPayments).run();
-			db.delete(debts).run();
-			db.delete(debtStrategySettings).run();
-			db.delete(paydaySettings).run();
 			db.delete(paymentMethods).run();
+			db.delete(assetTags).run();
 			db.delete(categories).run();
 			db.delete(userPreferences).run();
-
-			// Clean up any orphaned debt_rate_buckets table data (legacy table)
-			try {
-				db.run('DELETE FROM debt_rate_buckets');
-			} catch (e) {
-				// Table might not exist, ignore error
-			}
 
 			// Reset SQLite autoincrement sequences to start fresh
 			db.run('DELETE FROM sqlite_sequence');

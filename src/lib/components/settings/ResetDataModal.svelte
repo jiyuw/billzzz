@@ -60,11 +60,9 @@
 						<p>This will permanently delete:</p>
 						<ul class="list-disc pl-5 mt-2 space-y-1">
 							<li>All bills and payment history</li>
-							<li>All buckets and transactions</li>
-							<li>All debts and payments</li>
-							<li>All categories</li>
-							<li>All settings including payday schedule</li>
-							<li>All import sessions and imported transactions</li>
+							<li>All categories and asset tags</li>
+							<li>All payment methods</li>
+							<li>All settings and preferences</li>
 						</ul>
 						<p class="mt-3 font-semibold">
 							Make sure to export your data first if you want to keep a backup!

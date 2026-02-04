@@ -44,16 +44,12 @@ function initializeDatabase() {
 			.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='bills'")
 			.get() as { count: number };
 
-		const accountsTableExists = sqlite
-			.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='accounts'")
-			.get() as { count: number };
-
 		// Decide whether to run migrations
 		let shouldRunMigrations = false;
 
 		if (migrationTableExists.count === 0) {
 			// Migration tracking doesn't exist; if tables already exist, skip to avoid conflicts
-			if (billsTableExists.count > 0 && accountsTableExists.count > 0) {
+			if (billsTableExists.count > 0) {
 				console.log(
 					'Database tables already exist but migration metadata is missing. Skipping migrations to prevent conflicts.'
 				);
@@ -70,7 +66,7 @@ function initializeDatabase() {
 				.prepare('SELECT COUNT(*) as count FROM __drizzle_migrations')
 				.get() as { count: number };
 
-			if (migrationCount.count === 0 && billsTableExists.count > 0 && accountsTableExists.count > 0) {
+			if (migrationCount.count === 0 && billsTableExists.count > 0) {
 				console.log(
 					'Database tables already exist but migration metadata is empty. Skipping migrations to prevent conflicts.'
 				);
@@ -209,6 +205,31 @@ function initializeDatabase() {
 		console.log('Added color column to asset_tags table');
 	}
 
+	// Drop legacy tables from removed features
+	const legacyTables = [
+		'imported_transactions',
+		'import_sessions',
+		'bucket_transactions',
+		'bucket_cycles',
+		'buckets',
+		'debt_payments',
+		'debt_strategy_settings',
+		'debts',
+		'debt_rate_buckets',
+		'payday_settings',
+		'accounts'
+	];
+
+	for (const table of legacyTables) {
+		const exists = sqlite
+			.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+			.get(table) as { name: string } | undefined;
+		if (exists) {
+			sqlite.exec(`DROP TABLE IF EXISTS ${table}`);
+			console.log(`Dropped legacy table: ${table}`);
+		}
+	}
+
 	// Backfill recurrence interval/unit from legacy recurrence_type
 	try {
 		sqlite.exec(`
@@ -243,53 +264,6 @@ function initializeDatabase() {
 		`);
 	} catch (error) {
 		console.error('Migration error while backfilling recurrence fields:', error);
-	}
-
-	// Check if payment_allocation_strategy column exists in debts table
-	const debtColumns = sqlite.prepare("PRAGMA table_info(debts)").all() as Array<{ name: string }>;
-	const hasPaymentAllocation = debtColumns.some(col => col.name === 'payment_allocation_strategy');
-
-	if (!hasPaymentAllocation) {
-		sqlite.exec("ALTER TABLE debts ADD COLUMN payment_allocation_strategy TEXT DEFAULT 'highest-rate-first' CHECK(payment_allocation_strategy IN ('lowest-rate-first', 'highest-rate-first', 'oldest-first'))");
-		console.log('Added payment_allocation_strategy column to debts table');
-	}
-
-	// Check if is_income column exists in imported_transactions table
-	const importedTxnColumns = sqlite.prepare("PRAGMA table_info(imported_transactions)").all() as Array<{ name: string }>;
-	const hasIsIncome = importedTxnColumns.some(col => col.name === 'is_income');
-
-	if (!hasIsIncome) {
-		sqlite.exec('ALTER TABLE imported_transactions ADD COLUMN is_income INTEGER NOT NULL DEFAULT 0');
-		console.log('Added is_income column to imported_transactions table');
-
-		// Backfill existing CREDIT transactions as income
-		sqlite.exec("UPDATE imported_transactions SET is_income = 1 WHERE transaction_type = 'CREDIT'");
-		console.log('Backfilled existing CREDIT transactions as income');
-	}
-
-	// Fix orphaned transactions (both bills and buckets)
-	// This can happen if bills/buckets were deleted before this fix was implemented
-	const orphanedBillTxns = sqlite.prepare(
-		"SELECT COUNT(*) as count FROM imported_transactions WHERE mapped_bill_id IS NULL AND mapped_bucket_id IS NULL AND is_processed = 1 AND is_income = 0"
-	).get() as { count: number };
-
-	if (orphanedBillTxns.count > 0) {
-		sqlite.exec(
-			"UPDATE imported_transactions SET is_processed = 0 WHERE mapped_bill_id IS NULL AND mapped_bucket_id IS NULL AND is_processed = 1 AND is_income = 0"
-		);
-		console.log(`Reset ${orphanedBillTxns.count} orphaned bill transactions to allow re-import`);
-	}
-
-	// Also check for transactions mapped to soft-deleted buckets
-	const orphanedBucketTxns = sqlite.prepare(
-		"SELECT COUNT(*) as count FROM imported_transactions it INNER JOIN buckets b ON it.mapped_bucket_id = b.id WHERE b.is_deleted = 1 AND it.is_processed = 1"
-	).get() as { count: number };
-
-	if (orphanedBucketTxns.count > 0) {
-		sqlite.exec(
-			"UPDATE imported_transactions SET is_processed = 0, mapped_bucket_id = NULL WHERE mapped_bucket_id IN (SELECT id FROM buckets WHERE is_deleted = 1) AND is_processed = 1"
-		);
-		console.log(`Reset ${orphanedBucketTxns.count} orphaned bucket transactions to allow re-import`);
 	}
 
 	// Check if analytics columns exist in user_preferences table

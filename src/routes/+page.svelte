@@ -8,7 +8,7 @@
 	import FloatingActionButton from '$lib/components/FloatingActionButton.svelte';
 	import type { BillWithCategory } from '$lib/types/bill';
 	import { invalidateAll } from '$app/navigation';
-import { format, endOfDay } from 'date-fns';
+import { endOfDay } from 'date-fns';
 
 	let { data }: { data: PageData } = $props();
 
@@ -268,20 +268,10 @@ import { format, endOfDay } from 'date-fns';
 					<p class="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
 					<p class="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">{data.stats.overdueBills}</p>
 				</div>
-				<div class="min-w-[280px] snap-center shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Upcoming</p>
-					<p class="mt-1 text-2xl font-semibold text-yellow-600 dark:text-yellow-400">{data.stats.upcomingBills}</p>
-				</div>
-				<div class="min-w-[280px] snap-center shrink-0 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Due Next 30 Days</p>
-					<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-						${data.stats.totalAmount.toFixed(2)}
-					</p>
-				</div>
 			</div>
 
 			<!-- Desktop: Grid -->
-			<div class="hidden md:grid md:gap-4 md:grid-cols-2 lg:grid-cols-5">
+			<div class="hidden md:grid md:gap-4 md:grid-cols-2 lg:grid-cols-3">
 				<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
 					<p class="text-sm text-gray-500 dark:text-gray-400">Total Bills</p>
 					<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.stats.totalBills}</p>
@@ -294,51 +284,8 @@ import { format, endOfDay } from 'date-fns';
 					<p class="text-sm text-gray-500 dark:text-gray-400">Overdue</p>
 					<p class="mt-1 text-2xl font-semibold text-red-600 dark:text-red-400">{data.stats.overdueBills}</p>
 				</div>
-				<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Upcoming</p>
-					<p class="mt-1 text-2xl font-semibold text-yellow-600 dark:text-yellow-400">{data.stats.upcomingBills}</p>
-				</div>
-				<div class="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">
-					<p class="text-sm text-gray-500 dark:text-gray-400">Due Next 30 Days</p>
-					<p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">
-						${data.stats.totalAmount.toFixed(2)}
-					</p>
-				</div>
 			</div>
 		</div>
-
-		<!-- Payday Info (if configured) -->
-		{#if data.stats.hasPaydayConfigured && data.stats.nextPayday}
-			<div class="mb-6 rounded-lg border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950 p-4 md:p-6 shadow-sm">
-				<div class="flex items-start justify-between">
-					<div class="flex-1">
-						<h3 class="text-base md:text-lg font-semibold text-blue-900 dark:text-blue-100">Next Payday: {format(data.stats.nextPayday, 'MMM d, yyyy')}</h3>
-						<div class="mt-4 space-y-4 md:space-y-0 md:grid md:gap-4 md:grid-cols-2">
-							<div>
-								<p class="text-sm text-blue-700 dark:text-blue-300">Due Before Next Payday</p>
-								<div class="mt-1 flex items-baseline gap-2">
-									<p class="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100">
-										${data.stats.amountDueBeforeNextPayday.toFixed(2)}
-									</p>
-									<p class="text-sm text-blue-600 dark:text-blue-400">({data.stats.dueBeforeNextPayday} bills)</p>
-								</div>
-							</div>
-							{#if data.stats.followingPayday}
-								<div>
-									<p class="text-sm text-blue-700 dark:text-blue-300">Due Before Following Payday ({format(data.stats.followingPayday, 'MMM d')})</p>
-									<div class="mt-1 flex items-baseline gap-2">
-										<p class="text-2xl md:text-3xl font-bold text-blue-900 dark:text-blue-100">
-											${data.stats.amountDueBeforeFollowingPayday.toFixed(2)}
-										</p>
-										<p class="text-sm text-blue-600 dark:text-blue-400">({data.stats.dueBeforeFollowingPayday} bills)</p>
-									</div>
-								</div>
-							{/if}
-						</div>
-					</div>
-				</div>
-			</div>
-		{/if}
 
 		<!-- Filters and Actions -->
 		<div class="mb-6 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 shadow-sm">

@@ -6,14 +6,9 @@ import {
 	billCycles,
 	billPayments,
 	categories,
-	buckets,
-	bucketCycles,
-	bucketTransactions,
-	debts,
-	debtPayments,
-	debtStrategySettings,
-	paydaySettings,
-	paymentMethods
+	assetTags,
+	paymentMethods,
+	userPreferences
 } from '$lib/server/db/schema';
 
 export const GET: RequestHandler = async () => {
@@ -24,17 +19,12 @@ export const GET: RequestHandler = async () => {
 			exportDate: new Date().toISOString(),
 			data: {
 				categories: db.select().from(categories).all(),
+				assetTags: db.select().from(assetTags).all(),
 				bills: db.select().from(bills).all(),
 				billCycles: db.select().from(billCycles).all(),
 				billPayments: db.select().from(billPayments).all(),
-				buckets: db.select().from(buckets).all(),
-				bucketCycles: db.select().from(bucketCycles).all(),
-				bucketTransactions: db.select().from(bucketTransactions).all(),
-				debts: db.select().from(debts).all(),
-				debtPayments: db.select().from(debtPayments).all(),
-				debtStrategySettings: db.select().from(debtStrategySettings).all(),
-				paydaySettings: db.select().from(paydaySettings).all(),
-				paymentMethods: db.select().from(paymentMethods).all()
+				paymentMethods: db.select().from(paymentMethods).all(),
+				userPreferences: db.select().from(userPreferences).all()
 			}
 		};
 
