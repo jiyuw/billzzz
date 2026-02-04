@@ -1,13 +1,10 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { Home, Wallet, TrendingUp, Calculator, Upload, Settings } from 'lucide-svelte';
+	import { Home, TrendingUp, Settings } from 'lucide-svelte';
 
 	const navItems = [
 		{ href: '/', label: 'Bills', icon: Home },
-		{ href: '/buckets', label: 'Buckets', icon: Wallet },
 		{ href: '/analytics', label: 'Analytics', icon: TrendingUp },
-		{ href: '/debt-calculator', label: 'Debt', icon: Calculator },
-		{ href: '/import', label: 'Import', icon: Upload },
 		{ href: '/settings', label: 'Settings', icon: Settings }
 	];
 
@@ -23,7 +20,7 @@
 	class="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/95 md:hidden"
 	style="padding-bottom: env(safe-area-inset-bottom);"
 >
-	<div class="grid h-16 grid-cols-6">
+	<div class="grid h-16 grid-cols-3">
 		{#each navItems as item}
 			<a
 				href={item.href}

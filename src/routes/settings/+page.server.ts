@@ -1,5 +1,5 @@
 import type { PageServerLoad, Actions } from './$types';
-import { getAllCategories, getPaydaySettings, getAllAccounts, getAllPaymentMethods, getAllAssetTags } from '$lib/server/db/queries';
+import { getAllCategories, getAllPaymentMethods, getAllAssetTags } from '$lib/server/db/queries';
 import { fail } from '@sveltejs/kit';
 import { db } from '$lib/server/db/index';
 import {
@@ -63,15 +63,11 @@ function convertDatesToObjects(data: any[]): any[] {
 export const load: PageServerLoad = async () => {
 	const categoriesData = getAllCategories();
 	const assetTagsData = getAllAssetTags();
-	const paydaySettingsData = getPaydaySettings();
-	const accountsData = getAllAccounts();
 	const paymentMethodsData = getAllPaymentMethods();
 
 	return {
 		categories: categoriesData,
 		assetTags: assetTagsData,
-		paydaySettings: paydaySettingsData,
-		accounts: accountsData,
 		paymentMethods: paymentMethodsData
 	};
 };

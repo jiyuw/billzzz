@@ -30,16 +30,6 @@
 						Bills
 					</a>
 					<a
-						href="/debt-calculator"
-						class="px-3 py-2 rounded-md text-sm font-medium transition-colors {isActive(
-							'/debt-calculator'
-						)
-							? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
-							: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'}"
-					>
-						Debt Calculator
-					</a>
-					<a
 						href="/settings"
 						class="px-3 py-2 rounded-md text-sm font-medium transition-colors {isActive(
 							'/settings'
@@ -84,14 +74,6 @@
 					: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'}"
 			>
 				Bills
-			</a>
-			<a
-				href="/debt-calculator"
-				class="block px-3 py-2 rounded-md text-base font-medium {isActive('/debt-calculator')
-					? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-400'
-					: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'}"
-			>
-				Debt Calculator
 			</a>
 			<a
 				href="/settings"
