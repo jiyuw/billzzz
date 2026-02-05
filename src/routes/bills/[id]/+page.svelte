@@ -340,6 +340,31 @@
 					{/if}
 				</button>
 
+				{#if bill.paymentLink}
+					<a
+						href={bill.paymentLink}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="rounded-md p-2 min-h-9 min-w-9 flex items-center justify-center text-gray-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:scale-105 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400 cursor-pointer"
+						title="Pay bill"
+					>
+						<svg
+							class="h-6 w-6"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+							/>
+						</svg>
+					</a>
+				{/if}
+
 				<button
 					onclick={() => (showEditModal = true)}
 					class="rounded-md p-2 min-h-9 min-w-9 text-gray-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:scale-105 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400 cursor-pointer"

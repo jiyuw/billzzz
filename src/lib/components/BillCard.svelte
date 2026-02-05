@@ -271,11 +271,11 @@ import { Home, Car, HelpCircle } from 'lucide-svelte';
 				href={bill.paymentLink}
 				target="_blank"
 				rel="noopener noreferrer"
-				class="rounded-md p-3 min-h-11 min-w-11 flex items-center justify-center text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400"
+				class="rounded-md p-2 min-h-9 min-w-9 flex items-center justify-center text-gray-500 transition-all hover:bg-blue-50 hover:text-blue-600 hover:scale-105 dark:text-gray-400 dark:hover:bg-blue-950 dark:hover:text-blue-400"
 				title="Pay bill"
 			>
 				<svg
-					class="h-5 w-5"
+					class="h-6 w-6"
 					fill="none"
 					stroke="currentColor"
 					viewBox="0 0 24 24"
