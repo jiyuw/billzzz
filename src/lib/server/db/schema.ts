@@ -104,7 +104,7 @@ export const billPayments = sqliteTable('bill_payments', {
 		.references(() => bills.id, { onDelete: 'cascade' }),
 	cycleId: integer('cycle_id')
 		.notNull()
-		.references(() => billCycles.id, { onDelete: 'cascade' }),
+		.references(() => billCycles.id, { onDelete: 'no action' }),
 	amount: real('amount').notNull(),
 	paymentDate: integer('payment_date', { mode: 'timestamp' }).notNull(),
 	notes: text('notes'),

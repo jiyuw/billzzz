@@ -2,8 +2,6 @@ import type { Bill, Category, BillCycle, BillPayment } from '$lib/server/db/sche
 
 export type RecurrenceUnit = 'day' | 'week' | 'month' | 'year';
 
-export type BillStatus = 'paid' | 'upcoming' | 'overdue';
-
 // Extended bill type with category details
 export interface BillWithCategory extends Bill {
 	category?: Category | null;

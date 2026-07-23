@@ -6,6 +6,7 @@ import {
 	startOfDay,
 	startOfMonth
 } from 'date-fns';
+import { decodeStoredCalendarDate } from '$lib/utils/dates';
 
 type CycleRange = {
 	id: number;
@@ -30,11 +31,23 @@ export function buildCycleTimeline(
 ): CycleTimeline {
 	const rawStart =
 		cycles.length > 0
-			? new Date(Math.min(...cycles.map((cycle) => cycle.startDate.getTime())))
+			? new Date(
+					Math.min(
+						...cycles.map((cycle) =>
+							decodeStoredCalendarDate(cycle.startDate).getTime()
+						)
+					)
+				)
 			: today;
 	const rawEnd =
 		cycles.length > 0
-			? new Date(Math.max(...cycles.map((cycle) => cycle.endDate.getTime())))
+			? new Date(
+					Math.max(
+						...cycles.map((cycle) =>
+							decodeStoredCalendarDate(cycle.endDate).getTime()
+						)
+					)
+				)
 			: today;
 	const startDate = startOfMonth(rawStart);
 	const endDate = startOfDay(endOfMonth(rawEnd));
@@ -57,9 +70,11 @@ export function cyclePosition(
 	cycle: CycleRange,
 	timeline: CycleTimeline
 ): { left: number; width: number } {
-	const leftDays = differenceInCalendarDays(startOfDay(cycle.startDate), timeline.startDate);
+	const startDate = decodeStoredCalendarDate(cycle.startDate);
+	const endDate = decodeStoredCalendarDate(cycle.endDate);
+	const leftDays = differenceInCalendarDays(startDate, timeline.startDate);
 	const cycleDays =
-		differenceInCalendarDays(startOfDay(cycle.endDate), startOfDay(cycle.startDate)) + 1;
+		differenceInCalendarDays(endDate, startDate) + 1;
 
 	return {
 		left: (leftDays / timeline.dayCount) * 100,

@@ -3,7 +3,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import type { BillWithCategory } from '$lib/types/bill';
 	import type { BillCycle, BillPayment } from '$lib/server/db/schema';
-	import { format } from 'date-fns';
 	import { formatDateForInput, formatStoredDate, formatStoredDateForInput } from '$lib/utils/dates';
 	import { getInitialSelectedCycleId, normalizePaymentCycles } from './payment-modal-utils';
 
@@ -122,7 +121,7 @@
 					>
 						{#each availableCycles as cycle}
 							<option value={cycle.id}>
-								{formatStoredDate(cycle.startDate)} – {format(cycle.endDate, 'MMM d, yyyy')}
+								{formatStoredDate(cycle.startDate)} – {formatStoredDate(cycle.endDate)}
 								{cycle.isPaid ? ' (Paid)' : ''}
 							</option>
 						{/each}

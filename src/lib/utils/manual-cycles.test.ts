@@ -119,3 +119,35 @@ test('getLinkedBoundaryDates rejects an edit that consumes the adjacent cycle', 
 		/Cycle start date must be on or before end date/
 	);
 });
+
+test('legacy UTC-midnight boundaries keep their selected calendar days', () => {
+	const utcDate = (year: number, month: number, day: number) =>
+		new Date(Date.UTC(year, month - 1, day));
+
+	assert.deepEqual(
+		getLinkedBoundaryDates({
+			side: 'end',
+			selected: {
+				id: 1,
+				startDate: utcDate(2026, 7, 1),
+				endDate: utcDate(2026, 7, 31)
+			},
+			adjacent: {
+				id: 2,
+				startDate: utcDate(2026, 8, 1),
+				endDate: utcDate(2026, 8, 31)
+			},
+			date: localDate(2026, 7, 20)
+		}),
+		{
+			current: {
+				startDate: localDate(2026, 7, 1),
+				endDate: localDate(2026, 7, 20)
+			},
+			adjacent: {
+				startDate: localDate(2026, 7, 21),
+				endDate: localDate(2026, 8, 31)
+			}
+		}
+	);
+});

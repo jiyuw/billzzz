@@ -2,16 +2,20 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
 	createBill,
-	getAllBills,
 	getAssetTagById,
 	type BillWriteInput
 } from '$lib/server/db/queries';
+import { getAllBillsWithLatestCycle } from '$lib/server/db/bill-queries';
 import { createRequestLogger } from '$lib/server/api-logger';
+import { parsePositiveInteger } from '$lib/utils/ids';
+
+class BillInputError extends Error {}
 
 function parseOptionalId(value: unknown): number | null {
 	if (value === null || value === undefined || value === '') return null;
-	const parsed = Number.parseInt(String(value), 10);
-	return Number.isNaN(parsed) ? null : parsed;
+	const parsed = parsePositiveInteger(value);
+	if (parsed === null) throw new BillInputError('Invalid related record ID');
+	return parsed;
 }
 
 // GET /api/bills - Get all bills
@@ -29,7 +33,7 @@ export const GET: RequestHandler = async (event) => {
 
 		const filters = {
 			status: status || 'all',
-			categoryId: categoryId ? parseInt(categoryId) : undefined,
+			categoryId: categoryId ? parseOptionalId(categoryId) ?? undefined : undefined,
 			searchQuery: searchQuery || undefined
 		};
 
@@ -40,7 +44,7 @@ export const GET: RequestHandler = async (event) => {
 				}
 			: undefined;
 
-		const bills = getAllBills(filters, sort);
+		const bills = await getAllBillsWithLatestCycle(filters, sort);
 		logger.info('success', {
 			count: bills.length,
 			filters,
@@ -48,6 +52,9 @@ export const GET: RequestHandler = async (event) => {
 		});
 		return json(bills);
 	} catch (error) {
+		if (error instanceof BillInputError) {
+			return json({ error: error.message }, { status: 400 });
+		}
 		logger.error('error', { error });
 		return json({ error: 'Failed to fetch bills' }, { status: 500 });
 	}
@@ -60,16 +67,27 @@ export const POST: RequestHandler = async (event) => {
 		const { request } = event;
 		const data = await request.json();
 		logger.info('request', { body: data });
+		const amount = Number(data.amount);
+		const recurrenceInterval = Number(data.recurrenceInterval);
 
 		// Validate required fields
-		if (!data.name || (!data.isVariable && !data.amount)) {
+		if (
+			typeof data.name !== 'string' ||
+			data.name.trim() === '' ||
+			(!data.isVariable && (!Number.isFinite(amount) || amount <= 0))
+		) {
 			logger.warn('validation_failed', {
 				reason: 'missing_required_fields',
 				body: data
 			});
 			return json({ error: 'Missing required fields' }, { status: 400 });
 		}
-		if (data.isRecurring && (!data.recurrenceInterval || !data.recurrenceUnit)) {
+		if (
+			data.isRecurring &&
+			(!Number.isInteger(recurrenceInterval) ||
+				recurrenceInterval <= 0 ||
+				!['day', 'week', 'month', 'year'].includes(data.recurrenceUnit))
+		) {
 			logger.warn('validation_failed', {
 				reason: 'missing_recurrence_fields',
 				body: data
@@ -91,17 +109,16 @@ export const POST: RequestHandler = async (event) => {
 		}
 
 		const newBill: BillWriteInput = {
-			name: data.name,
-			amount: data.isVariable ? 0 : parseFloat(data.amount),
+			name: data.name.trim(),
+			amount: data.isVariable ? 0 : amount,
 			paymentLink: data.paymentLink || null,
 			categoryId,
 			assetTagId,
 			isRecurring: data.isRecurring || false,
-			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : null,
+			recurrenceInterval: data.isRecurring ? recurrenceInterval : null,
 			recurrenceUnit: data.recurrenceUnit || null,
 			recurrenceDay: null,
 			chargeToTenant: selectedAsset?.isRental && data.chargeToTenant === true,
-			isPaid: data.isPaid || false,
 			isAutopay: data.isAutopay || false,
 			paymentMethodId: data.isAutopay ? paymentMethodId : null,
 			isVariable: data.isVariable || false,
@@ -115,6 +132,9 @@ export const POST: RequestHandler = async (event) => {
 		});
 		return json(bill, { status: 201 });
 	} catch (error) {
+		if (error instanceof BillInputError) {
+			return json({ error: error.message }, { status: 400 });
+		}
 		logger.error('error', { error });
 		return json({ error: 'Failed to create bill' }, { status: 500 });
 	}

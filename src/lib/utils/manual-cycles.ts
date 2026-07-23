@@ -8,6 +8,7 @@ import {
 	subDays
 } from 'date-fns';
 import type { RecurrenceUnit } from '$lib/types/bill';
+import { decodeStoredCalendarDate } from '$lib/utils/dates';
 
 export type CycleDateRange = {
 	id: number;
@@ -23,7 +24,10 @@ export type CycleConflict = {
 
 function sortCycles<T extends CycleDateRange>(cycles: T[]): T[] {
 	return [...cycles].sort((left, right) => {
-		const byStart = compareAsc(left.startDate, right.startDate);
+		const byStart = compareAsc(
+			decodeStoredCalendarDate(left.startDate),
+			decodeStoredCalendarDate(right.startDate)
+		);
 		return byStart === 0 ? left.id - right.id : byStart;
 	});
 }
@@ -58,8 +62,8 @@ export function findCycleConflicts(cycles: CycleDateRange[]): CycleConflict[] {
 	for (let index = 1; index < sorted.length; index += 1) {
 		const left = sorted[index - 1];
 		const right = sorted[index];
-		const expectedRightStart = addDays(startOfDay(left.endDate), 1);
-		const actualRightStart = startOfDay(right.startDate);
+		const expectedRightStart = addDays(decodeStoredCalendarDate(left.endDate), 1);
+		const actualRightStart = decodeStoredCalendarDate(right.startDate);
 
 		if (actualRightStart.getTime() < expectedRightStart.getTime()) {
 			conflicts.push({
@@ -82,7 +86,10 @@ export function findCycleConflicts(cycles: CycleDateRange[]): CycleConflict[] {
 export function getLatestCycle<T extends CycleDateRange>(cycles: T[]): T | null {
 	return (
 		[...cycles].sort((left, right) => {
-			const byEnd = compareAsc(right.endDate, left.endDate);
+			const byEnd = compareAsc(
+				decodeStoredCalendarDate(right.endDate),
+				decodeStoredCalendarDate(left.endDate)
+			);
 			return byEnd === 0 ? right.id - left.id : byEnd;
 		})[0] ?? null
 	);
@@ -103,7 +110,9 @@ export function createCyclePlaceholder(params: {
 		today = new Date()
 	} = params;
 	const latest = getLatestCycle(cycles);
-	const startDate = latest ? addDays(startOfDay(latest.endDate), 1) : startOfDay(today);
+	const startDate = latest
+		? addDays(decodeStoredCalendarDate(latest.endDate), 1)
+		: startOfDay(today);
 
 	if (!isRecurring || !recurrenceInterval || !recurrenceUnit) {
 		return { startDate, endDate: startDate };
@@ -125,11 +134,13 @@ export function getLinkedBoundaryDates(params: {
 	adjacent: { startDate: Date; endDate: Date } | null;
 } {
 	const { side, selected, adjacent } = params;
-	const date = startOfDay(params.date);
+	const date = decodeStoredCalendarDate(params.date);
+	const selectedStart = decodeStoredCalendarDate(selected.startDate);
+	const selectedEnd = decodeStoredCalendarDate(selected.endDate);
 	const current =
 		side === 'start'
-			? { startDate: date, endDate: selected.endDate }
-			: { startDate: selected.startDate, endDate: date };
+			? { startDate: date, endDate: selectedEnd }
+			: { startDate: selectedStart, endDate: date };
 
 	assertValidRange(current.startDate, current.endDate);
 
@@ -139,8 +150,14 @@ export function getLinkedBoundaryDates(params: {
 
 	const linkedAdjacent =
 		side === 'start'
-			? { startDate: adjacent.startDate, endDate: subDays(date, 1) }
-			: { startDate: addDays(date, 1), endDate: adjacent.endDate };
+			? {
+					startDate: decodeStoredCalendarDate(adjacent.startDate),
+					endDate: subDays(date, 1)
+				}
+			: {
+					startDate: addDays(date, 1),
+					endDate: decodeStoredCalendarDate(adjacent.endDate)
+				};
 
 	assertValidRange(linkedAdjacent.startDate, linkedAdjacent.endDate);
 	return { current, adjacent: linkedAdjacent };

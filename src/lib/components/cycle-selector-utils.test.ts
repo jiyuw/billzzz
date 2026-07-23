@@ -66,3 +66,16 @@ test('cyclePosition maps inclusive dates to timeline percentages', () => {
 		{ left: (7 / 31) * 100, width: (7 / 31) * 100 }
 	);
 });
+
+test('cyclePosition treats legacy UTC-midnight timestamps as calendar dates', () => {
+	const cycle = {
+		id: 1,
+		startDate: new Date(Date.UTC(2026, 6, 1)),
+		endDate: new Date(Date.UTC(2026, 6, 31))
+	};
+	const timeline = buildCycleTimeline([cycle], localDate(2026, 7, 22));
+
+	assert.deepEqual(timeline.startDate, localDate(2026, 7, 1));
+	assert.deepEqual(timeline.endDate, localDate(2026, 7, 31));
+	assert.deepEqual(cyclePosition(cycle, timeline), { left: 0, width: 100 });
+});

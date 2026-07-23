@@ -48,3 +48,20 @@ test('new payments fall back to the latest saved cycle', () => {
 
 	assert.equal(getInitialSelectedCycleId({ cycles }), febCycle.id);
 });
+
+test('latest-cycle fallback uses the greatest id for mixed storage on the same day', () => {
+	const cycles = normalizePaymentCycles([
+		{
+			...febCycle,
+			id: 30,
+			endDate: new Date(Date.UTC(2026, 6, 31))
+		},
+		{
+			...febCycle,
+			id: 20,
+			endDate: new Date(2026, 6, 31, 23, 59, 59, 999)
+		}
+	]);
+
+	assert.equal(getInitialSelectedCycleId({ cycles }), 30);
+});

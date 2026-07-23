@@ -152,14 +152,6 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 	// Apply filters
 	const conditions = [];
 
-	if (filters?.status && filters.status !== 'all') {
-		if (filters.status === 'paid') {
-			conditions.push(eq(bills.isPaid, true));
-		} else if (filters.status === 'unpaid') {
-			conditions.push(eq(bills.isPaid, false));
-		}
-	}
-
 	if (filters?.categoryId) {
 		conditions.push(eq(bills.categoryId, filters.categoryId));
 	}
@@ -234,16 +226,4 @@ export function updateBill(id: number, data: Partial<NewBill>) {
 export function deleteBill(id: number) {
 	// Delete the bill (payment_history will cascade delete automatically)
 	return db.delete(bills).where(eq(bills.id, id)).returning().get();
-}
-
-export function markBillAsPaid(id: number, paid: boolean) {
-	return db
-		.update(bills)
-		.set({
-			isPaid: paid,
-			updatedAt: new Date()
-		})
-		.where(eq(bills.id, id))
-		.returning()
-		.get();
 }

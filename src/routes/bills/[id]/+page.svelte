@@ -1,7 +1,8 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { BillPayment } from '$lib/server/db/schema';
-	import { invalidateAll } from '$app/navigation';
+	import { invalidateAll, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import BillForm from '$lib/components/BillForm.svelte';
@@ -33,14 +34,26 @@
 	let editError = $state('');
 
 	$effect(() => {
+		const cycleParam = page.url.searchParams.get('cycle');
+		const requestedCycleId = Number(cycleParam);
 		if (
-			selectedCycleId !== null &&
-			cycles.some((cycle) => cycle.id === selectedCycleId)
+			cycleParam !== null &&
+			Number.isInteger(requestedCycleId) &&
+			requestedCycleId > 0 &&
+			cycles.some((cycle) => cycle.id === requestedCycleId)
 		) {
+			selectedCycleId = requestedCycleId;
 			return;
 		}
 		selectedCycleId = getLatestCycle(cycles)?.id ?? null;
 	});
+
+	function selectCycle(cycleId: number) {
+		selectedCycleId = cycleId;
+		const url = new URL(page.url);
+		url.searchParams.set('cycle', String(cycleId));
+		replaceState(url, page.state);
+	}
 
 	const selectedCycle = $derived(
 		cycles.find((cycle) => cycle.id === selectedCycleId) ?? null
@@ -93,7 +106,7 @@
 				cycleError = result?.error ?? 'Failed to add cycle.';
 				return;
 			}
-			selectedCycleId = result.cycle.id;
+			selectCycle(result.cycle.id);
 			isAddingCycle = false;
 			await invalidateAll();
 		} finally {
@@ -236,7 +249,7 @@
 		<CycleSelector
 			{cycles}
 			{selectedCycleId}
-			onSelect={(cycleId) => (selectedCycleId = cycleId)}
+			onSelect={selectCycle}
 			onAdd={openAddCycle}
 			onResize={resizeCycle}
 			isSaving={isSavingCycle}

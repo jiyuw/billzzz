@@ -3,8 +3,12 @@
 	import Button from '$lib/components/Button.svelte';
 	import { buildCycleTimeline, cyclePosition } from './cycle-selector-utils';
 	import { findCycleConflicts } from '$lib/utils/manual-cycles';
-	import { addDays, format, startOfDay } from 'date-fns';
-	import { formatStoredDateForInput } from '$lib/utils/dates';
+	import { addDays, format } from 'date-fns';
+	import {
+		decodeStoredCalendarDate,
+		formatStoredDate,
+		formatStoredDateForInput
+	} from '$lib/utils/dates';
 
 	interface Props {
 		cycles: BillCycle[];
@@ -55,13 +59,21 @@
 			'[data-cycle-timeline]'
 		) as HTMLElement | null;
 		if (!container) return;
+		const previewBar = container.querySelector(
+			`[data-preview-cycle="${cycle.id}"]`
+		) as HTMLElement | null;
+		const originalLeft = previewBar?.style.left ?? '';
+		const originalWidth = previewBar?.style.width ?? '';
+
+		const restorePreview = () => {
+			if (!previewBar) return;
+			previewBar.style.left = originalLeft;
+			previewBar.style.width = originalWidth;
+		};
 
 		const handleMove = (moveEvent: PointerEvent) => {
 			const nextDate = dateAtPointer(moveEvent, container);
-			const bar = container.querySelector(
-				`[data-preview-cycle="${cycle.id}"]`
-			) as HTMLElement | null;
-			if (!bar) return;
+			if (!previewBar) return;
 
 			const previewCycle = {
 				...cycle,
@@ -70,8 +82,8 @@
 			};
 			if (previewCycle.startDate > previewCycle.endDate) return;
 			const preview = cyclePosition(previewCycle, timeline);
-			bar.style.left = `${preview.left}%`;
-			bar.style.width = `${preview.width}%`;
+			previewBar.style.left = `${preview.left}%`;
+			previewBar.style.width = `${preview.width}%`;
 		};
 
 		const handleUp = async (upEvent: PointerEvent) => {
@@ -79,16 +91,21 @@
 			window.removeEventListener('pointerup', handleUp);
 			const nextDate = dateAtPointer(upEvent, container);
 			if (
-				(side === 'start' && nextDate > startOfDay(cycle.endDate)) ||
-				(side === 'end' && nextDate < startOfDay(cycle.startDate))
+				(side === 'start' && nextDate > decodeStoredCalendarDate(cycle.endDate)) ||
+				(side === 'end' && nextDate < decodeStoredCalendarDate(cycle.startDate))
 			) {
+				restorePreview();
 				return;
 			}
-			await onResize({
-				cycleId: cycle.id,
-				side,
-				date: format(nextDate, 'yyyy-MM-dd')
-			});
+			try {
+				await onResize({
+					cycleId: cycle.id,
+					side,
+					date: format(nextDate, 'yyyy-MM-dd')
+				});
+			} finally {
+				restorePreview();
+			}
 		};
 
 		window.addEventListener('pointermove', handleMove);
@@ -162,7 +179,7 @@
 				></div>
 
 				<div class="relative space-y-2 py-3">
-					{#each [...cycles].sort((a, b) => a.startDate.getTime() - b.startDate.getTime()) as cycle}
+					{#each [...cycles].sort((a, b) => decodeStoredCalendarDate(a.startDate).getTime() - decodeStoredCalendarDate(b.startDate).getTime()) as cycle}
 						{@const position = cyclePosition(cycle, timeline)}
 						<div class="relative h-11">
 							<button
@@ -175,7 +192,7 @@
 										: 'bg-blue-500 hover:bg-blue-600'
 								}`}
 								style={`left: ${position.left}%; width: ${position.width}%`}
-								title={`${format(cycle.startDate, 'MMM d, yyyy')} – ${format(cycle.endDate, 'MMM d, yyyy')}`}
+								title={`${formatStoredDate(cycle.startDate)} – ${formatStoredDate(cycle.endDate)}`}
 							>
 								{#if cycle.id === selectedCycleId}
 									<span
@@ -188,7 +205,7 @@
 									></span>
 								{/if}
 								<span class="truncate">
-									{format(cycle.startDate, 'MMM d')} – {format(cycle.endDate, 'MMM d')}
+									{formatStoredDate(cycle.startDate, 'MMM d')} – {formatStoredDate(cycle.endDate, 'MMM d')}
 								</span>
 								{#if cycle.id === selectedCycleId}
 									<span

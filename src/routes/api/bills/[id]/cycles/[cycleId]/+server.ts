@@ -8,11 +8,22 @@ import {
 } from '$lib/server/db/bill-queries';
 import { createRequestLogger } from '$lib/server/api-logger';
 import { normalizeDateForStorage } from '$lib/utils/dates';
+import { parsePositiveInteger } from '$lib/utils/ids';
+
+class CycleInputError extends Error {}
+
+function parseBoundaryDate(value: unknown, boundary: 'start' | 'end') {
+	try {
+		return normalizeDateForStorage(String(value), { kind: 'date', boundary });
+	} catch {
+		throw new CycleInputError(`Invalid cycle ${boundary} date`);
+	}
+}
 
 function parseIds(params: { id: string; cycleId: string }) {
 	return {
-		billId: Number.parseInt(params.id, 10),
-		cycleId: Number.parseInt(params.cycleId, 10)
+		billId: parsePositiveInteger(params.id),
+		cycleId: parsePositiveInteger(params.cycleId)
 	};
 }
 
@@ -26,7 +37,7 @@ export const PUT: RequestHandler = async (event) => {
 	const logger = createRequestLogger(event, 'bill_cycles.update_boundary');
 	try {
 		const { billId, cycleId } = parseIds(event.params);
-		if (Number.isNaN(billId) || Number.isNaN(cycleId)) {
+		if (billId === null || cycleId === null) {
 			return json({ error: 'Invalid bill or cycle ID' }, { status: 400 });
 		}
 
@@ -35,10 +46,7 @@ export const PUT: RequestHandler = async (event) => {
 			return json({ error: 'Boundary side and date are required' }, { status: 400 });
 		}
 
-		const date = normalizeDateForStorage(data.date, {
-			kind: 'date',
-			boundary: data.side
-		});
+		const date = parseBoundaryDate(data.date, data.side);
 		const cycles = await updateManualCycleBoundary(
 			billId,
 			cycleId,
@@ -49,6 +57,9 @@ export const PUT: RequestHandler = async (event) => {
 		logger.audit('success', { billId, cycleId, side: data.side, date });
 		return json({ cycles });
 	} catch (error) {
+		if (error instanceof CycleInputError) {
+			return json({ error: error.message }, { status: 400 });
+		}
 		if (error instanceof ManualCycleError) return manualCycleError(error);
 		logger.error('error', { billId: event.params.id, cycleId: event.params.cycleId, error });
 		return json({ error: 'Failed to update bill cycle' }, { status: 500 });
@@ -59,7 +70,7 @@ export const DELETE: RequestHandler = async (event) => {
 	const logger = createRequestLogger(event, 'bill_cycles.delete');
 	try {
 		const { billId, cycleId } = parseIds(event.params);
-		if (Number.isNaN(billId) || Number.isNaN(cycleId)) {
+		if (billId === null || cycleId === null) {
 			return json({ error: 'Invalid bill or cycle ID' }, { status: 400 });
 		}
 

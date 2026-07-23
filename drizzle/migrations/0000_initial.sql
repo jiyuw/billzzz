@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS `bill_payments` (
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL,
 	FOREIGN KEY (`bill_id`) REFERENCES `bills`(`id`) ON UPDATE no action ON DELETE cascade,
-	FOREIGN KEY (`cycle_id`) REFERENCES `bill_cycles`(`id`) ON UPDATE no action ON DELETE cascade
+	FOREIGN KEY (`cycle_id`) REFERENCES `bill_cycles`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `rental_payment_notifications` (

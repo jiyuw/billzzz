@@ -42,8 +42,13 @@ export function parseLocalDate(dateString: string): Date {
 	// Create the date
 	const date = new Date(year, month - 1, day);
 
-	// Validate that the date is valid (not Invalid Date)
-	if (isNaN(date.getTime())) {
+	// Reject JavaScript's implicit rollover for values such as 2026-02-31.
+	if (
+		isNaN(date.getTime()) ||
+		date.getFullYear() !== year ||
+		date.getMonth() !== month - 1 ||
+		date.getDate() !== day
+	) {
 		throw new Error(`Invalid date: ${trimmed} resulted in Invalid Date`);
 	}
 
@@ -128,20 +133,32 @@ export function formatDateForInput(date: Date): string {
 }
 
 /**
- * Formats a stored start-boundary date-only value by reconstructing its calendar day before display.
- * Use this for values like payment dates or cycle start dates that should preserve the chosen day.
+ * Formats a stored calendar date while supporting both storage conventions found
+ * in existing databases:
+ * - legacy date-only values stored at UTC midnight
+ * - newer values normalized to a local start/end-of-day boundary
  */
 export function formatStoredDate(date: Date, pattern = 'MMM d, yyyy'): string {
-	const normalized = new Date(
-		date.getUTCFullYear(),
-		date.getUTCMonth(),
-		date.getUTCDate()
-	);
-	return format(normalized, pattern);
+	return format(decodeStoredCalendarDate(date), pattern);
 }
 
 /**
- * Formats a stored start-boundary date-only value for a date input.
+ * Decodes a persisted date boundary into the local calendar day the user
+ * selected. Legacy rows used UTC midnight; newer rows use local boundaries.
+ */
+export function decodeStoredCalendarDate(date: Date): Date {
+	const isLegacyUtcMidnight =
+		date.getUTCHours() === 0 &&
+		date.getUTCMinutes() === 0 &&
+		date.getUTCSeconds() === 0 &&
+		date.getUTCMilliseconds() === 0;
+	return isLegacyUtcMidnight
+		? new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+		: startOfDay(date);
+}
+
+/**
+ * Formats a stored calendar date for a date input.
  */
 export function formatStoredDateForInput(date: Date): string {
 	return formatStoredDate(date, 'yyyy-MM-dd');

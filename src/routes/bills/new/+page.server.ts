@@ -34,7 +34,6 @@ export const actions: Actions = {
 			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval as string) : null,
 			recurrenceUnit: (data.recurrenceUnit as any) || null,
 			recurrenceDay: null,
-			isPaid: false,
 			notes: (data.notes as string) || null,
 			isAutopay: data.isAutopay === 'true',
 			paymentMethodId: data.paymentMethodId ? parseInt(data.paymentMethodId as string) : null

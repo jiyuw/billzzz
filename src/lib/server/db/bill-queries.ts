@@ -1,14 +1,17 @@
 import { db } from './index';
-import { billCycles, billPayments } from './schema';
+import { bills, billCycles, billPayments } from './schema';
 import type { BillCycle, BillPayment, NewBillPayment } from './schema';
 import type {
 	BillCycleWithComputed,
+	BillFilters,
+	BillSort,
 	BillUsageStats,
 	BillWithLatestCycle
 } from '$lib/types/bill';
-import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { endOfDay, startOfDay } from 'date-fns';
-import { getLinkedBoundaryDates } from '$lib/utils/manual-cycles';
+import { getLatestCycle, getLinkedBoundaryDates } from '$lib/utils/manual-cycles';
+import { decodeStoredCalendarDate } from '$lib/utils/dates';
 
 export class ManualCycleError extends Error {
 	constructor(
@@ -70,11 +73,9 @@ export async function getLatestCycleForBill(
 	const result = await db
 		.select()
 		.from(billCycles)
-		.where(eq(billCycles.billId, billId))
-		.orderBy(desc(billCycles.endDate), desc(billCycles.id))
-		.limit(1);
+		.where(eq(billCycles.billId, billId));
 
-	return result[0];
+	return getLatestCycle(result) ?? undefined;
 }
 
 export async function getBillWithLatestCycle(
@@ -94,11 +95,14 @@ export async function getBillWithLatestCycle(
 	};
 }
 
-export async function getAllBillsWithLatestCycle(): Promise<BillWithLatestCycle[]> {
+export async function getAllBillsWithLatestCycle(
+	filters?: BillFilters,
+	sort?: BillSort
+): Promise<BillWithLatestCycle[]> {
 	const { getAllBills } = await import('./queries');
-	const allBills = getAllBills();
+	const allBills = getAllBills(filters, sort);
 
-	return Promise.all(
+	const withCycles = await Promise.all(
 		allBills.map(async (bill) => {
 			const latestCycle = await getLatestCycleForBill(bill.id);
 			const usageStats = bill.isVariable ? await getBillUsageStats(bill.id) : null;
@@ -110,26 +114,37 @@ export async function getAllBillsWithLatestCycle(): Promise<BillWithLatestCycle[
 			};
 		})
 	);
+
+	if (!filters?.status || filters.status === 'all') return withCycles;
+	return withCycles.filter((bill) => {
+		if (!bill.latestCycle) return false;
+		const isPaid = bill.isVariable
+			? bill.latestCycle.totalPaid > 0
+			: bill.latestCycle.isPaid ||
+				bill.latestCycle.totalPaid >= bill.latestCycle.expectedAmount;
+		return filters.status === 'paid' ? isPaid : !isPaid;
+	});
 }
 
 export async function getCyclesForBill(billId: number): Promise<BillCycle[]> {
-	return db
+	const cycles = await db
 		.select()
 		.from(billCycles)
-		.where(eq(billCycles.billId, billId))
-		.orderBy(desc(billCycles.endDate), desc(billCycles.id));
+		.where(eq(billCycles.billId, billId));
+	return cycles.sort((left, right) => {
+		const byEnd =
+			decodeStoredCalendarDate(right.endDate).getTime() -
+			decodeStoredCalendarDate(left.endDate).getTime();
+		return byEnd || right.id - left.id;
+	});
 }
 
 export async function createManualCycle(
 	billId: number,
 	input: { startDate: Date; endDate: Date }
 ): Promise<BillCycle> {
-	const { getBillById } = await import('./queries');
-	const bill = getBillById(billId);
-	if (!bill) throw new ManualCycleError('Bill not found', 'BILL_NOT_FOUND');
-
-	const startDate = startOfDay(input.startDate);
-	const endDate = endOfDay(input.endDate);
+	const startDate = startOfDay(decodeStoredCalendarDate(input.startDate));
+	const endDate = endOfDay(decodeStoredCalendarDate(input.endDate));
 	if (startDate.getTime() > endDate.getTime()) {
 		throw new ManualCycleError(
 			'Cycle start date must be on or before end date',
@@ -137,32 +152,44 @@ export async function createManualCycle(
 		);
 	}
 
-	const latest = await getLatestCycleForBill(billId);
-	if (latest) {
-		const expectedStart = startOfDay(latest.endDate);
-		expectedStart.setDate(expectedStart.getDate() + 1);
-		if (startDate.getTime() !== expectedStart.getTime()) {
-			throw new ManualCycleError(
-				'New cycles must start the day after the latest cycle',
-				'NOT_CONTIGUOUS'
-			);
+	return db.transaction((tx) => {
+		const bill = tx
+			.select({ id: bills.id, amount: bills.amount })
+			.from(bills)
+			.where(eq(bills.id, billId))
+			.get();
+		if (!bill) throw new ManualCycleError('Bill not found', 'BILL_NOT_FOUND');
+
+		const savedCycles = tx
+			.select()
+			.from(billCycles)
+			.where(eq(billCycles.billId, billId))
+			.all();
+		const latest = getLatestCycle(savedCycles);
+		if (latest) {
+			const expectedStart = decodeStoredCalendarDate(latest.endDate);
+			expectedStart.setDate(expectedStart.getDate() + 1);
+			if (startDate.getTime() !== expectedStart.getTime()) {
+				throw new ManualCycleError(
+					'New cycles must start the day after the latest cycle',
+					'NOT_CONTIGUOUS'
+				);
+			}
 		}
-	}
 
-	const inserted = await db
-		.insert(billCycles)
-		.values({
-			billId,
-			startDate,
-			endDate,
-			dueDate: null,
-			expectedAmount: bill.amount,
-			totalPaid: 0,
-			isPaid: false
-		})
-		.returning();
-
-	return inserted[0];
+		return tx
+			.insert(billCycles)
+			.values({
+				billId,
+				startDate,
+				endDate,
+				expectedAmount: bill.amount,
+				totalPaid: 0,
+				isPaid: false
+			})
+			.returning()
+			.get();
+	});
 }
 
 export async function updateManualCycleBoundary(
@@ -177,8 +204,13 @@ export async function updateManualCycleBoundary(
 				.select()
 				.from(billCycles)
 				.where(eq(billCycles.billId, billId))
-				.orderBy(asc(billCycles.startDate), asc(billCycles.id))
-				.all();
+				.all()
+				.sort((left, right) => {
+					const byStart =
+						decodeStoredCalendarDate(left.startDate).getTime() -
+						decodeStoredCalendarDate(right.startDate).getTime();
+					return byStart || left.id - right.id;
+				});
 			const selectedIndex = cycles.findIndex((cycle) => cycle.id === cycleId);
 
 			if (selectedIndex === -1) {
@@ -196,21 +228,33 @@ export async function updateManualCycleBoundary(
 			});
 
 			tx.update(billCycles)
-				.set({
-					startDate: startOfDay(linked.current.startDate),
-					endDate: endOfDay(linked.current.endDate),
-					updatedAt: new Date()
-				})
+				.set(
+					side === 'start'
+						? {
+								startDate: startOfDay(linked.current.startDate),
+								updatedAt: new Date()
+							}
+						: {
+								endDate: endOfDay(linked.current.endDate),
+								updatedAt: new Date()
+							}
+				)
 				.where(and(eq(billCycles.id, cycleId), eq(billCycles.billId, billId)))
 				.run();
 
 			if (adjacent && linked.adjacent) {
 				tx.update(billCycles)
-					.set({
-						startDate: startOfDay(linked.adjacent.startDate),
-						endDate: endOfDay(linked.adjacent.endDate),
-						updatedAt: new Date()
-					})
+					.set(
+						side === 'start'
+							? {
+									endDate: endOfDay(linked.adjacent.endDate),
+									updatedAt: new Date()
+								}
+							: {
+									startDate: startOfDay(linked.adjacent.startDate),
+									updatedAt: new Date()
+								}
+					)
 					.where(and(eq(billCycles.id, adjacent.id), eq(billCycles.billId, billId)))
 					.run();
 			}
@@ -230,38 +274,47 @@ export async function deleteManualCycle(
 	billId: number,
 	cycleId: number
 ): Promise<void> {
-	const cycles = await db
-		.select()
-		.from(billCycles)
-		.where(eq(billCycles.billId, billId))
-		.orderBy(asc(billCycles.startDate), asc(billCycles.id));
-	const cycleIndex = cycles.findIndex((cycle) => cycle.id === cycleId);
-	if (cycleIndex === -1) {
-		throw new ManualCycleError('Cycle not found', 'CYCLE_NOT_FOUND');
-	}
+	db.transaction((tx) => {
+		const cycles = tx
+			.select()
+			.from(billCycles)
+			.where(eq(billCycles.billId, billId))
+			.all()
+			.sort((left, right) => {
+				const byStart =
+					decodeStoredCalendarDate(left.startDate).getTime() -
+					decodeStoredCalendarDate(right.startDate).getTime();
+				return byStart || left.id - right.id;
+			});
+		const cycleIndex = cycles.findIndex((cycle) => cycle.id === cycleId);
+		if (cycleIndex === -1) {
+			throw new ManualCycleError('Cycle not found', 'CYCLE_NOT_FOUND');
+		}
 
-	const linkedPayments = await db
-		.select({ id: billPayments.id })
-		.from(billPayments)
-		.where(and(eq(billPayments.billId, billId), eq(billPayments.cycleId, cycleId)))
-		.limit(1);
-	if (linkedPayments.length > 0) {
-		throw new ManualCycleError('Cycle has linked payments', 'HAS_PAYMENTS');
-	}
+		const linkedPayment = tx
+			.select({ id: billPayments.id })
+			.from(billPayments)
+			.where(and(eq(billPayments.billId, billId), eq(billPayments.cycleId, cycleId)))
+			.limit(1)
+			.get();
+		if (linkedPayment) {
+			throw new ManualCycleError('Cycle has linked payments', 'HAS_PAYMENTS');
+		}
 
-	if (cycleIndex > 0 && cycleIndex < cycles.length - 1) {
-		throw new ManualCycleError(
-			'Only the first or latest cycle can be deleted',
-			'MIDDLE_DELETE'
-		);
-	}
+		if (cycleIndex > 0 && cycleIndex < cycles.length - 1) {
+			throw new ManualCycleError(
+				'Only the first or latest cycle can be deleted',
+				'MIDDLE_DELETE'
+			);
+		}
 
-	await db
-		.delete(billCycles)
-		.where(and(eq(billCycles.id, cycleId), eq(billCycles.billId, billId)));
+		tx.delete(billCycles)
+			.where(and(eq(billCycles.id, cycleId), eq(billCycles.billId, billId)))
+			.run();
+	});
 }
 
-async function recalculateCycle(cycleId: number): Promise<void> {
+async function refreshCyclePaymentSummary(cycleId: number): Promise<void> {
 	const cycle = await db
 		.select()
 		.from(billCycles)
@@ -291,10 +344,10 @@ export async function createPayment(data: NewBillPayment): Promise<BillPayment> 
 		.from(billCycles)
 		.where(and(eq(billCycles.id, data.cycleId), eq(billCycles.billId, data.billId)))
 		.limit(1);
-	if (!cycle[0]) throw new Error('Cycle not found');
+	if (!cycle[0]) throw new ManualCycleError('Cycle not found', 'CYCLE_NOT_FOUND');
 
 	const inserted = await db.insert(billPayments).values(data).returning();
-	await recalculateCycle(data.cycleId);
+	await refreshCyclePaymentSummary(data.cycleId);
 	return inserted[0];
 }
 
@@ -327,7 +380,9 @@ export async function updatePayment(
 			)
 		)
 		.limit(1);
-	if (!selectedCycle[0]) throw new Error('Cycle not found');
+	if (!selectedCycle[0]) {
+		throw new ManualCycleError('Cycle not found', 'CYCLE_NOT_FOUND');
+	}
 
 	const updated = await db
 		.update(billPayments)
@@ -335,9 +390,9 @@ export async function updatePayment(
 		.where(eq(billPayments.id, id))
 		.returning();
 
-	await recalculateCycle(existing[0].cycleId);
+	await refreshCyclePaymentSummary(existing[0].cycleId);
 	if (nextCycleId !== existing[0].cycleId) {
-		await recalculateCycle(nextCycleId);
+		await refreshCyclePaymentSummary(nextCycleId);
 	}
 
 	return updated[0];
@@ -352,7 +407,7 @@ export async function deletePayment(id: number): Promise<void> {
 	if (!payment[0]) return;
 
 	await db.delete(billPayments).where(eq(billPayments.id, id));
-	await recalculateCycle(payment[0].cycleId);
+	await refreshCyclePaymentSummary(payment[0].cycleId);
 }
 
 export async function getPaymentsForBill(billId: number): Promise<BillPayment[]> {

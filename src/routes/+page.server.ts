@@ -29,8 +29,9 @@ function getDashboardStatsFromCycles(bills: any[]) {
 	};
 
 	const totalBills = bills.length;
-	const paidBills = bills.filter((b) => isPaid(b)).length;
-	const unpaidBills = totalBills - paidBills;
+	const billsWithCycles = bills.filter((bill) => bill.latestCycle);
+	const paidBills = billsWithCycles.filter((b) => isPaid(b)).length;
+	const unpaidBills = billsWithCycles.length - paidBills;
 	return {
 		totalBills,
 		unpaidBills

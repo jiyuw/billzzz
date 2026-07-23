@@ -326,29 +326,6 @@ function initializeDatabase() {
 		console.error('Migration error while backfilling recurrence fields:', error);
 	}
 
-	try {
-		sqlite.exec(`
-			UPDATE bills
-			SET cycle_start_date = CASE
-				WHEN created_at <= due_date THEN created_at
-				ELSE due_date
-			END
-			WHERE cycle_start_date IS NULL
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET cycle_end_date = due_date
-			WHERE cycle_end_date IS NULL
-		`);
-		sqlite.exec(`
-			UPDATE bill_cycles
-			SET due_date = end_date
-			WHERE due_date IS NULL
-		`);
-	} catch (error) {
-		console.error('Migration error while backfilling cycle dates:', error);
-	}
-
 	// Check if analytics columns exist in user_preferences table
 	const userPrefColumns = sqlite.prepare("PRAGMA table_info(user_preferences)").all() as Array<{ name: string }>;
 	const hasExpectedIncome = userPrefColumns.some(col => col.name === 'expected_income_amount');

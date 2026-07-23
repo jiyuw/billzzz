@@ -25,7 +25,9 @@ export function normalizePaymentCycles<T extends CycleLike>(
 			endDate: normalizeCycleDate(cycle.endDate)
 		}))
 		.sort((left, right) => {
-			const byEnd = right.endDate.getTime() - left.endDate.getTime();
+			const byEnd =
+				decodeStoredCalendarDate(right.endDate).getTime() -
+				decodeStoredCalendarDate(left.endDate).getTime();
 			return byEnd === 0 ? right.id - left.id : byEnd;
 		});
 }
@@ -53,3 +55,4 @@ export function getInitialSelectedCycleId<T extends CycleLike>(params: {
 
 	return cycles[0]?.id ?? null;
 }
+import { decodeStoredCalendarDate } from '$lib/utils/dates';

@@ -217,7 +217,7 @@
 			<p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">Billing</p>
 			<h3 class="mt-2 text-xl font-semibold text-gray-900 dark:text-gray-100">How this bill works</h3>
 			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-				Set the bill type first, then define the amount and the latest cycle details if it repeats.
+				Set the bill type, amount, and the frequency label used to seed new cycle placeholders.
 			</p>
 		</div>
 
@@ -239,7 +239,7 @@
 					>
 						<p class="text-sm font-semibold text-gray-900 dark:text-gray-100">One-time bill</p>
 						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-							Track a single amount with one due date.
+						Track a single amount and add its cycles manually.
 						</p>
 					</button>
 					<button
@@ -263,7 +263,7 @@
 				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
 					<p class="text-sm font-medium text-gray-900 dark:text-gray-100">Recurrence</p>
 					<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-						How often a new cycle should be created.
+						Used only to suggest the length of a new cycle placeholder.
 					</p>
 					<div class="mt-4 grid gap-2 sm:grid-cols-[auto_7rem_minmax(0,14rem)] sm:items-center">
 						<span class="text-sm text-gray-600 dark:text-gray-400">Every</span>
