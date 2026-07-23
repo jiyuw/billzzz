@@ -31,10 +31,9 @@ export interface BillUsageStats {
 	lastAmount: number;
 }
 
-// Bill with current cycle information
-export interface BillWithCycle extends Bill {
-	currentCycle?: BillCycleWithComputed | null;
-	focusCycle?: BillCycleWithComputed | null;
+// Bill with its latest saved cycle for presentation only
+export interface BillWithLatestCycle extends Bill {
+	latestCycle?: BillCycleWithComputed | null;
 	usageStats?: BillUsageStats | null;
 	category?: Category | null;
 	assetTag?: {
@@ -47,6 +46,8 @@ export interface BillWithCycle extends Bill {
 	} | null;
 	paymentMethod?: { id: number; nickname: string; lastFour: string } | null;
 }
+
+export type BillWithCycle = BillWithLatestCycle;
 
 // Filter options for bills list
 export interface BillFilters {
