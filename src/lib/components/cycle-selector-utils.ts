@@ -14,6 +14,8 @@ type CycleRange = {
 	endDate: Date;
 };
 
+export type CycleBoundary = 'start' | 'end';
+
 export type CycleTimeline = {
 	startDate: Date;
 	endDate: Date;
@@ -80,4 +82,18 @@ export function cyclePosition(
 		left: (leftDays / timeline.dayCount) * 100,
 		width: (cycleDays / timeline.dayCount) * 100
 	};
+}
+
+export function previewCycleBoundary(
+	cycle: CycleRange,
+	side: CycleBoundary,
+	date: Date
+): CycleRange | null {
+	const startDate =
+		side === 'start' ? startOfDay(date) : decodeStoredCalendarDate(cycle.startDate);
+	const endDate =
+		side === 'end' ? startOfDay(date) : decodeStoredCalendarDate(cycle.endDate);
+
+	if (startDate > endDate) return null;
+	return { id: cycle.id, startDate, endDate };
 }

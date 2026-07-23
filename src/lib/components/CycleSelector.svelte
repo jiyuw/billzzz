@@ -1,9 +1,14 @@
 <script lang="ts">
 	import type { BillCycle } from '$lib/server/db/schema';
 	import Button from '$lib/components/Button.svelte';
-	import { buildCycleTimeline, cyclePosition } from './cycle-selector-utils';
+	import {
+		buildCycleTimeline,
+		cyclePosition,
+		previewCycleBoundary
+	} from './cycle-selector-utils';
 	import { findCycleConflicts } from '$lib/utils/manual-cycles';
 	import { addDays, format } from 'date-fns';
+	import { onDestroy } from 'svelte';
 	import {
 		decodeStoredCalendarDate,
 		formatStoredDate,
@@ -40,6 +45,19 @@
 		cycles.find((cycle) => cycle.id === selectedCycleId) ?? null
 	);
 	const timelineWidth = $derived(Math.max(720, timeline.dayCount * 18));
+	let dragPreview = $state<{
+		id: number;
+		startDate: Date;
+		endDate: Date;
+		side: 'start' | 'end';
+	} | null>(null);
+	let activeDragCleanup: (() => void) | null = null;
+	onDestroy(() => activeDragCleanup?.());
+	const selectedDisplayCycle = $derived(
+		selectedCycle && dragPreview?.id === selectedCycle.id
+			? dragPreview
+			: selectedCycle
+	);
 
 	function dateAtPointer(event: PointerEvent, container: HTMLElement): Date {
 		const rect = container.getBoundingClientRect();
@@ -59,44 +77,35 @@
 			'[data-cycle-timeline]'
 		) as HTMLElement | null;
 		if (!container) return;
-		const previewBar = container.querySelector(
-			`[data-preview-cycle="${cycle.id}"]`
-		) as HTMLElement | null;
-		const originalLeft = previewBar?.style.left ?? '';
-		const originalWidth = previewBar?.style.width ?? '';
-
-		const restorePreview = () => {
-			if (!previewBar) return;
-			previewBar.style.left = originalLeft;
-			previewBar.style.width = originalWidth;
-		};
 
 		const handleMove = (moveEvent: PointerEvent) => {
 			const nextDate = dateAtPointer(moveEvent, container);
-			if (!previewBar) return;
+			const previewCycle = previewCycleBoundary(cycle, side, nextDate);
+			if (!previewCycle) return;
+			dragPreview = { ...previewCycle, side };
+		};
 
-			const previewCycle = {
-				...cycle,
-				startDate: side === 'start' ? nextDate : cycle.startDate,
-				endDate: side === 'end' ? nextDate : cycle.endDate
-			};
-			if (previewCycle.startDate > previewCycle.endDate) return;
-			const preview = cyclePosition(previewCycle, timeline);
-			previewBar.style.left = `${preview.left}%`;
-			previewBar.style.width = `${preview.width}%`;
+		const cleanup = () => {
+			window.removeEventListener('pointermove', handleMove);
+			window.removeEventListener('pointerup', handleUp);
+			window.removeEventListener('pointercancel', handleCancel);
+			if (activeDragCleanup === cleanup) activeDragCleanup = null;
+		};
+
+		const handleCancel = () => {
+			cleanup();
+			dragPreview = null;
 		};
 
 		const handleUp = async (upEvent: PointerEvent) => {
-			window.removeEventListener('pointermove', handleMove);
-			window.removeEventListener('pointerup', handleUp);
+			cleanup();
 			const nextDate = dateAtPointer(upEvent, container);
-			if (
-				(side === 'start' && nextDate > decodeStoredCalendarDate(cycle.endDate)) ||
-				(side === 'end' && nextDate < decodeStoredCalendarDate(cycle.startDate))
-			) {
-				restorePreview();
+			const previewCycle = previewCycleBoundary(cycle, side, nextDate);
+			if (!previewCycle) {
+				dragPreview = null;
 				return;
 			}
+			dragPreview = { ...previewCycle, side };
 			try {
 				await onResize({
 					cycleId: cycle.id,
@@ -104,12 +113,16 @@
 					date: format(nextDate, 'yyyy-MM-dd')
 				});
 			} finally {
-				restorePreview();
+				dragPreview = null;
 			}
 		};
 
+		activeDragCleanup?.();
+		activeDragCleanup = cleanup;
+		handleMove(event);
 		window.addEventListener('pointermove', handleMove);
 		window.addEventListener('pointerup', handleUp, { once: true });
+		window.addEventListener('pointercancel', handleCancel, { once: true });
 	}
 
 	async function saveExactBoundary(side: 'start' | 'end', value: string) {
@@ -148,6 +161,17 @@
 		</div>
 	{/if}
 
+	{#if dragPreview}
+		<p
+			aria-live="polite"
+			class="mt-4 text-sm font-medium text-blue-700 dark:text-blue-300"
+		>
+			Dragging {dragPreview.side} to {formatStoredDate(
+				dragPreview.side === 'start' ? dragPreview.startDate : dragPreview.endDate
+			)}
+		</p>
+	{/if}
+
 	{#if cycles.length === 0}
 		<div class="mt-5 rounded-2xl border border-dashed border-gray-300 px-5 py-10 text-center dark:border-gray-600">
 			<p class="font-medium text-gray-900 dark:text-gray-100">No cycles yet</p>
@@ -180,7 +204,8 @@
 
 				<div class="relative space-y-2 py-3">
 					{#each [...cycles].sort((a, b) => decodeStoredCalendarDate(a.startDate).getTime() - decodeStoredCalendarDate(b.startDate).getTime()) as cycle}
-						{@const position = cyclePosition(cycle, timeline)}
+						{@const displayCycle = dragPreview?.id === cycle.id ? dragPreview : cycle}
+						{@const position = cyclePosition(displayCycle, timeline)}
 						<div class="relative h-11">
 							<button
 								type="button"
@@ -192,26 +217,26 @@
 										: 'bg-blue-500 hover:bg-blue-600'
 								}`}
 								style={`left: ${position.left}%; width: ${position.width}%`}
-								title={`${formatStoredDate(cycle.startDate)} – ${formatStoredDate(cycle.endDate)}`}
+								title={`${formatStoredDate(displayCycle.startDate)} – ${formatStoredDate(displayCycle.endDate)}`}
 							>
 								{#if cycle.id === selectedCycleId}
 									<span
 										role="slider"
 										aria-label="Adjust cycle start"
-										aria-valuenow={cycle.startDate.getTime()}
+										aria-valuenow={displayCycle.startDate.getTime()}
 										tabindex="0"
 										onpointerdown={(event) => beginResize(event, cycle, 'start')}
 										class="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l-xl bg-blue-900/70"
 									></span>
 								{/if}
 								<span class="truncate">
-									{formatStoredDate(cycle.startDate, 'MMM d')} – {formatStoredDate(cycle.endDate, 'MMM d')}
+									{formatStoredDate(displayCycle.startDate, 'MMM d')} – {formatStoredDate(displayCycle.endDate, 'MMM d')}
 								</span>
 								{#if cycle.id === selectedCycleId}
 									<span
 										role="slider"
 										aria-label="Adjust cycle end"
-										aria-valuenow={cycle.endDate.getTime()}
+										aria-valuenow={displayCycle.endDate.getTime()}
 										tabindex="0"
 										onpointerdown={(event) => beginResize(event, cycle, 'end')}
 										class="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r-xl bg-blue-900/70"
@@ -225,7 +250,7 @@
 		</div>
 	{/if}
 
-	{#if selectedCycle}
+	{#if selectedCycle && selectedDisplayCycle}
 		<div class="mt-5 grid gap-4 border-t border-gray-200 pt-5 sm:grid-cols-2 dark:border-gray-700">
 			<div>
 				<label for="selectedCycleStart" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -234,7 +259,7 @@
 				<input
 					id="selectedCycleStart"
 					type="date"
-					value={formatStoredDateForInput(selectedCycle.startDate)}
+					value={formatStoredDateForInput(selectedDisplayCycle.startDate)}
 					onchange={(event) => saveExactBoundary('start', event.currentTarget.value)}
 					disabled={isSaving}
 					class="mt-1 block w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
@@ -247,7 +272,7 @@
 				<input
 					id="selectedCycleEnd"
 					type="date"
-					value={formatStoredDateForInput(selectedCycle.endDate)}
+					value={formatStoredDateForInput(selectedDisplayCycle.endDate)}
 					onchange={(event) => saveExactBoundary('end', event.currentTarget.value)}
 					disabled={isSaving}
 					class="mt-1 block w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"

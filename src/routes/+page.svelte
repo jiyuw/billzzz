@@ -6,6 +6,7 @@
 	import BillForm from '$lib/components/BillForm.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Button from '$lib/components/Button.svelte';
+	import PaymentModal from '$lib/components/PaymentModal.svelte';
 
 	let { data }: { data: PageData } = $props();
 
@@ -16,10 +17,16 @@
 	let sortField = $state<'assetTag' | 'name'>('assetTag');
 	let editingBillId = $state<number | null>(null);
 	let editError = $state('');
+	let paymentBillId = $state<number | null>(null);
 
 	const editingBill = $derived(
 		editingBillId !== null
 			? data.bills.find((bill: BillWithLatestCycle) => bill.id === editingBillId) ?? null
+			: null
+	);
+	const paymentBill = $derived(
+		paymentBillId !== null
+			? data.bills.find((bill: BillWithLatestCycle) => bill.id === paymentBillId) ?? null
 			: null
 	);
 
@@ -89,6 +96,23 @@
 	async function deleteBill(id: number) {
 		const response = await fetch(`/api/bills/${id}`, { method: 'DELETE' });
 		if (response.ok) await invalidateAll();
+	}
+
+	async function savePayment(input: {
+		amount: number;
+		paymentDate: string;
+		cycleId: number | null;
+		notes?: string;
+	}) {
+		if (!paymentBill || input.cycleId === null) return;
+		const response = await fetch(`/api/bills/${paymentBill.id}/payments`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(input)
+		});
+		if (!response.ok) return;
+		paymentBillId = null;
+		await invalidateAll();
 	}
 </script>
 
@@ -184,6 +208,7 @@
 				{#each visibleBills as bill}
 					<BillCard
 						{bill}
+						onAddPayment={(id) => (paymentBillId = id)}
 						onEdit={(id) => (editingBillId = id)}
 						onDelete={deleteBill}
 					/>
@@ -227,3 +252,11 @@
 		/>
 	</Modal>
 {/if}
+
+<PaymentModal
+	isOpen={paymentBillId !== null}
+	bill={paymentBill}
+	selectedCycleId={paymentBill?.latestCycle?.id ?? null}
+	onConfirm={savePayment}
+	onCancel={() => (paymentBillId = null)}
+/>

@@ -37,6 +37,7 @@
 	let notes = $state('');
 	let availableCycles = $state<BillCycle[]>([]);
 	let paymentCycleId = $state<number | null>(null);
+	let cycleRequestId = 0;
 	const isEditing = $derived(existingPayment !== null);
 
 	// Update amount when bill changes
@@ -58,6 +59,10 @@
 
 	$effect(() => {
 		if (!isOpen || !bill) return;
+		const requestId = ++cycleRequestId;
+		const billId = bill.id;
+		availableCycles = [];
+		paymentCycleId = null;
 
 		if (cycles.length > 0) {
 			const normalized = normalizePaymentCycles(cycles);
@@ -72,9 +77,16 @@
 
 		(async () => {
 			try {
-				const response = await fetch(`/api/bills/${bill.id}/cycles`);
+				const response = await fetch(`/api/bills/${billId}/cycles`);
 				if (!response.ok) return;
 				const data = (await response.json()) as BillCycle[];
+				if (
+					requestId !== cycleRequestId ||
+					!isOpen ||
+					bill?.id !== billId
+				) {
+					return;
+				}
 				const normalized = normalizePaymentCycles(data);
 				availableCycles = normalized;
 				paymentCycleId = getInitialSelectedCycleId({
@@ -86,6 +98,10 @@
 				console.error('Failed to load cycles', error);
 			}
 		})();
+
+		return () => {
+			if (requestId === cycleRequestId) cycleRequestId += 1;
+		};
 	});
 
 	async function handleSubmit(e: Event) {

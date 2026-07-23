@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { buildCycleTimeline, cyclePosition } = await import(
+const { buildCycleTimeline, cyclePosition, previewCycleBoundary } = await import(
 	new URL('./cycle-selector-utils.ts', import.meta.url).href
 );
 
@@ -78,4 +78,46 @@ test('cyclePosition treats legacy UTC-midnight timestamps as calendar dates', ()
 	assert.deepEqual(timeline.startDate, localDate(2026, 7, 1));
 	assert.deepEqual(timeline.endDate, localDate(2026, 7, 31));
 	assert.deepEqual(cyclePosition(cycle, timeline), { left: 0, width: 100 });
+});
+
+test('previewCycleBoundary moves only the selected boundary', () => {
+	const cycle = {
+		id: 1,
+		startDate: localDate(2026, 7, 1),
+		endDate: localDate(2026, 7, 31)
+	};
+
+	assert.deepEqual(
+		previewCycleBoundary(cycle, 'start', localDate(2026, 7, 8)),
+		{
+			id: 1,
+			startDate: localDate(2026, 7, 8),
+			endDate: localDate(2026, 7, 31)
+		}
+	);
+	assert.deepEqual(
+		previewCycleBoundary(cycle, 'end', localDate(2026, 7, 24)),
+		{
+			id: 1,
+			startDate: localDate(2026, 7, 1),
+			endDate: localDate(2026, 7, 24)
+		}
+	);
+});
+
+test('previewCycleBoundary rejects an inverted cycle range', () => {
+	const cycle = {
+		id: 1,
+		startDate: localDate(2026, 7, 10),
+		endDate: localDate(2026, 7, 20)
+	};
+
+	assert.equal(
+		previewCycleBoundary(cycle, 'start', localDate(2026, 7, 21)),
+		null
+	);
+	assert.equal(
+		previewCycleBoundary(cycle, 'end', localDate(2026, 7, 9)),
+		null
+	);
 });
