@@ -1,390 +1,41 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 import * as schema from './schema';
-import { existsSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
+import { initializeSqliteDatabase } from './migrations';
+import { existsSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { building } from '$app/environment';
 
-// Database path - use environment variable or default based on environment
-const DATA_DIR = process.env.DATA_DIR || (process.env.NODE_ENV === 'production' ? '/app/data' : './data');
-const dbPath = join(DATA_DIR, 'bills.db');
+const dataDirectory =
+	process.env.DATA_DIR ||
+	(process.env.NODE_ENV === 'production' ? '/app/data' : './data');
+const dbPath = join(dataDirectory, 'bills.db');
+const migrationsFolder = join(process.cwd(), 'drizzle', 'migrations');
 
-// Initialize database connection (skip during build)
 let sqlite: Database.Database;
 let isInitialized = false;
 
 function initializeDatabase() {
 	if (isInitialized || building) return;
 
-	// Ensure data directory exists
-	const dataDir = dirname(dbPath);
-	if (!existsSync(dataDir)) {
-		mkdirSync(dataDir, { recursive: true });
+	const directory = dirname(dbPath);
+	if (!existsSync(directory)) {
+		mkdirSync(directory, { recursive: true });
 	}
 
-	// Create SQLite database connection
 	sqlite = new Database(dbPath);
-	sqlite.pragma('journal_mode = WAL'); // Enable WAL mode for better concurrency
-	sqlite.pragma('foreign_keys = ON'); // Enable foreign key constraints
+	sqlite.pragma('journal_mode = WAL');
+	sqlite.pragma('foreign_keys = ON');
 
-	// Run Drizzle migrations
 	try {
-		const drizzleDb = drizzle(sqlite, { schema });
-
-		// Check if migration metadata table exists
-		const migrationTableExists = sqlite
-			.prepare(
-				"SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='__drizzle_migrations'"
-			)
-			.get() as { count: number };
-
-		// Check if business tables exist
-		const billsTableExists = sqlite
-			.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='bills'")
-			.get() as { count: number };
-
-		// Decide whether to run migrations
-		let shouldRunMigrations = false;
-
-		if (migrationTableExists.count === 0) {
-			// Migration tracking doesn't exist; if tables already exist, skip to avoid conflicts
-			if (billsTableExists.count > 0) {
-				console.log(
-					'Database tables already exist but migration metadata is missing. Skipping migrations to prevent conflicts.'
-				);
-				shouldRunMigrations = false;
-			} else {
-				shouldRunMigrations = true;
-			}
-		} else if (billsTableExists.count === 0) {
-			// Migration table exists but no business tables - run migrations
-			shouldRunMigrations = true;
-		} else {
-			// Both migration table and business tables exist - check if migrations are complete
-			const migrationCount = sqlite
-				.prepare('SELECT COUNT(*) as count FROM __drizzle_migrations')
-				.get() as { count: number };
-
-			if (migrationCount.count === 0 && billsTableExists.count > 0) {
-				console.log(
-					'Database tables already exist but migration metadata is empty. Skipping migrations to prevent conflicts.'
-				);
-				shouldRunMigrations = false;
-			} else {
-				// Run migrations to catch any new ones
-				shouldRunMigrations = true;
-			}
-		}
-
-		if (shouldRunMigrations) {
-			migrate(drizzleDb, { migrationsFolder: join(process.cwd(), 'drizzle', 'migrations') });
-			console.log('Database migrations completed successfully');
-		}
+		initializeSqliteDatabase(sqlite, migrationsFolder);
+		isInitialized = true;
 	} catch (error) {
-		console.error('Migration error:', error);
+		sqlite.close();
 		throw error;
 	}
-
-	// Run manual migrations for backwards compatibility with existing databases
-	try {
-	// Check if is_autopay column exists, if not add it
-	const billColumns = sqlite.prepare("PRAGMA table_info(bills)").all() as Array<{ name: string }>;
-	const hasAutopay = billColumns.some(col => col.name === 'is_autopay');
-	const hasIsVariable = billColumns.some(col => col.name === 'is_variable');
-	const hasRecurrenceInterval = billColumns.some(col => col.name === 'recurrence_interval');
-	const hasRecurrenceUnit = billColumns.some(col => col.name === 'recurrence_unit');
-	const hasPaymentMethodId = billColumns.some(col => col.name === 'payment_method_id');
-	const hasAssetTagId = billColumns.some(col => col.name === 'asset_tag_id');
-	const hasCycleStartDate = billColumns.some(col => col.name === 'cycle_start_date');
-	const hasCycleEndDate = billColumns.some(col => col.name === 'cycle_end_date');
-	const hasChargeToTenant = billColumns.some((col) => col.name === 'charge_to_tenant');
-
-	if (!hasAutopay) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN is_autopay INTEGER NOT NULL DEFAULT 0');
-		console.log('Added is_autopay column to bills table');
-	}
-
-	if (!hasIsVariable) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN is_variable INTEGER NOT NULL DEFAULT 0');
-		console.log('Added is_variable column to bills table');
-	}
-
-	if (!hasRecurrenceInterval) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN recurrence_interval INTEGER');
-		console.log('Added recurrence_interval column to bills table');
-	}
-
-	if (!hasRecurrenceUnit) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN recurrence_unit TEXT');
-		console.log('Added recurrence_unit column to bills table');
-	}
-
-	if (!hasPaymentMethodId) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN payment_method_id INTEGER');
-		console.log('Added payment_method_id column to bills table');
-	}
-
-	if (!hasAssetTagId) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN asset_tag_id INTEGER');
-		console.log('Added asset_tag_id column to bills table');
-	}
-
-	if (!hasCycleStartDate) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN cycle_start_date INTEGER');
-		console.log('Added cycle_start_date column to bills table');
-	}
-
-	if (!hasCycleEndDate) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN cycle_end_date INTEGER');
-		console.log('Added cycle_end_date column to bills table');
-	}
-
-	if (!hasChargeToTenant) {
-		sqlite.exec('ALTER TABLE bills ADD COLUMN charge_to_tenant INTEGER NOT NULL DEFAULT 0');
-		console.log('Added charge_to_tenant column to bills table');
-	}
-
-	const billCycleColumns = sqlite.prepare("PRAGMA table_info(bill_cycles)").all() as Array<{ name: string }>;
-	const hasBillCycleDueDate = billCycleColumns.some((col) => col.name === 'due_date');
-
-	if (!hasBillCycleDueDate) {
-		sqlite.exec('ALTER TABLE bill_cycles ADD COLUMN due_date INTEGER');
-		console.log('Added due_date column to bill_cycles table');
-	}
-
-	const categoriesTableExists = sqlite
-		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='categories'")
-		.get() as { count: number };
-	if (categoriesTableExists.count > 0) {
-		const presetCategories = [
-			{ name: 'Utility', color: '#3b82f6', icon: 'utility' },
-			{ name: 'Insurance', color: '#10b981', icon: 'insurance' },
-			{ name: 'Mortgage', color: '#8b5cf6', icon: 'mortgage' },
-			{ name: 'Fee', color: '#f59e0b', icon: 'fee' }
-		];
-
-		const selectCategory = sqlite.prepare('SELECT id FROM categories WHERE name = ? LIMIT 1');
-		const insertCategory = sqlite.prepare(
-			'INSERT INTO categories (name, color, icon, created_at) VALUES (?, ?, ?, unixepoch())'
-		);
-
-		for (const category of presetCategories) {
-			const existing = selectCategory.get(category.name) as { id: number } | undefined;
-			if (!existing) {
-				insertCategory.run(category.name, category.color, category.icon);
-				console.log(`Added preset category: ${category.name}`);
-			}
-		}
-	}
-
-	const paymentMethodsTableExists = sqlite
-		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='payment_methods'")
-		.get() as { count: number };
-	if (paymentMethodsTableExists.count === 0) {
-		sqlite.exec(`
-			CREATE TABLE payment_methods (
-				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-				nickname TEXT NOT NULL,
-				last_four TEXT NOT NULL,
-				type TEXT,
-				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-			)
-		`);
-		console.log('Created payment_methods table');
-	}
-
-	const paymentMethodColumns = sqlite.prepare("PRAGMA table_info(payment_methods)").all() as Array<{ name: string }>;
-	const hasPaymentMethodType = paymentMethodColumns.some((col) => col.name === 'type');
-	if (!hasPaymentMethodType) {
-		sqlite.exec('ALTER TABLE payment_methods ADD COLUMN type TEXT');
-		console.log('Added type column to payment_methods table');
-	}
-
-	const assetTagsTableExists = sqlite
-		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='asset_tags'")
-		.get() as { count: number };
-	if (assetTagsTableExists.count === 0) {
-		sqlite.exec(`
-			CREATE TABLE asset_tags (
-				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-				name TEXT NOT NULL UNIQUE,
-				type TEXT,
-				color TEXT,
-				banner_pattern TEXT NOT NULL DEFAULT 'solid',
-				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-			)
-		`);
-		console.log('Created asset_tags table');
-	}
-
-	const assetTagColumns = sqlite.prepare("PRAGMA table_info(asset_tags)").all() as Array<{ name: string }>;
-	const hasAssetTagType = assetTagColumns.some((col) => col.name === 'type');
-	const hasAssetTagColor = assetTagColumns.some((col) => col.name === 'color');
-	const hasAssetTagBannerPattern = assetTagColumns.some((col) => col.name === 'banner_pattern');
-	const hasAssetTagIsRental = assetTagColumns.some((col) => col.name === 'is_rental');
-	if (!hasAssetTagType) {
-		sqlite.exec('ALTER TABLE asset_tags ADD COLUMN type TEXT');
-		console.log('Added type column to asset_tags table');
-	}
-	if (!hasAssetTagIsRental) {
-		sqlite.exec('ALTER TABLE asset_tags ADD COLUMN is_rental INTEGER NOT NULL DEFAULT 0');
-		console.log('Added is_rental column to asset_tags table');
-	}
-	if (!hasAssetTagColor) {
-		sqlite.exec('ALTER TABLE asset_tags ADD COLUMN color TEXT');
-		console.log('Added color column to asset_tags table');
-	}
-	if (!hasAssetTagBannerPattern) {
-		sqlite.exec("ALTER TABLE asset_tags ADD COLUMN banner_pattern TEXT NOT NULL DEFAULT 'solid'");
-		console.log('Added banner_pattern column to asset_tags table');
-	}
-
-	const activityLogsTableExists = sqlite
-		.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='activity_logs'")
-		.get() as { count: number };
-	if (activityLogsTableExists.count === 0) {
-		sqlite.exec(`
-			CREATE TABLE activity_logs (
-				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-				level TEXT NOT NULL,
-				event TEXT NOT NULL,
-				log_type TEXT NOT NULL DEFAULT 'activity',
-				request_id TEXT,
-				method TEXT,
-				path TEXT,
-				route_id TEXT,
-				entity_type TEXT,
-				entity_id TEXT,
-				details TEXT,
-				created_at INTEGER NOT NULL DEFAULT (unixepoch())
-			)
-		`);
-		console.log('Created activity_logs table');
-	}
-
-	// Drop legacy tables from removed features
-	const legacyTables = [
-		'imported_transactions',
-		'import_sessions',
-		'bucket_transactions',
-		'bucket_cycles',
-		'buckets',
-		'debt_payments',
-		'debt_strategy_settings',
-		'debts',
-		'debt_rate_buckets',
-		'payday_settings',
-		'accounts'
-	];
-
-	for (const table of legacyTables) {
-		const exists = sqlite
-			.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
-			.get(table) as { name: string } | undefined;
-		if (exists) {
-			sqlite.exec(`DROP TABLE IF EXISTS ${table}`);
-			console.log(`Dropped legacy table: ${table}`);
-		}
-	}
-
-	// Backfill recurrence interval/unit from legacy recurrence_type
-	try {
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'week', recurrence_interval = 1
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'weekly'
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'week', recurrence_interval = 2
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'biweekly'
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'month', recurrence_interval = 1
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'monthly'
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'month', recurrence_interval = 2
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'bimonthly'
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'month', recurrence_interval = 3
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'quarterly'
-		`);
-		sqlite.exec(`
-			UPDATE bills
-			SET recurrence_unit = 'year', recurrence_interval = 1
-			WHERE recurrence_unit IS NULL AND recurrence_type = 'yearly'
-		`);
-	} catch (error) {
-		console.error('Migration error while backfilling recurrence fields:', error);
-	}
-
-	// Check if analytics columns exist in user_preferences table
-	const userPrefColumns = sqlite.prepare("PRAGMA table_info(user_preferences)").all() as Array<{ name: string }>;
-	const hasExpectedIncome = userPrefColumns.some(col => col.name === 'expected_income_amount');
-	const hasCurrentBalance = userPrefColumns.some(col => col.name === 'current_balance');
-	const hasLastBalanceUpdate = userPrefColumns.some(col => col.name === 'last_balance_update');
-
-	if (!hasExpectedIncome) {
-		sqlite.exec('ALTER TABLE user_preferences ADD COLUMN expected_income_amount REAL');
-		console.log('Added expected_income_amount column to user_preferences table');
-	}
-
-	if (!hasCurrentBalance) {
-		sqlite.exec('ALTER TABLE user_preferences ADD COLUMN current_balance REAL');
-		console.log('Added current_balance column to user_preferences table');
-	}
-
-	if (!hasLastBalanceUpdate) {
-		sqlite.exec('ALTER TABLE user_preferences ADD COLUMN last_balance_update INTEGER');
-		console.log('Added last_balance_update column to user_preferences table');
-	}
-
-	const hasRentalManagementEnabled = userPrefColumns.some(
-		(col) => col.name === 'rental_management_enabled'
-	);
-
-	if (!hasRentalManagementEnabled) {
-		sqlite.exec(
-			'ALTER TABLE user_preferences ADD COLUMN rental_management_enabled INTEGER NOT NULL DEFAULT 0'
-		);
-		console.log('Added rental_management_enabled column to user_preferences table');
-	}
-
-	const rentalPaymentNotificationsTableExists = sqlite
-		.prepare(
-			"SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='rental_payment_notifications'"
-		)
-		.get() as { count: number };
-
-	if (rentalPaymentNotificationsTableExists.count === 0) {
-		sqlite.exec(`
-			CREATE TABLE rental_payment_notifications (
-				id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-				payment_id INTEGER NOT NULL UNIQUE REFERENCES bill_payments(id) ON DELETE CASCADE,
-				is_notified INTEGER NOT NULL DEFAULT 0,
-				notified_on INTEGER,
-				created_at INTEGER NOT NULL DEFAULT (unixepoch()),
-				updated_at INTEGER NOT NULL DEFAULT (unixepoch())
-			)
-		`);
-		console.log('Created rental_payment_notifications table');
-	}
-	} catch (error) {
-		console.error('Migration error:', error);
-	}
-
-	isInitialized = true;
 }
 
-// Get database instance (initializes on first access)
 function getDb() {
 	if (!isInitialized && !building) {
 		initializeDatabase();
@@ -392,13 +43,11 @@ function getDb() {
 	return drizzle(sqlite, { schema });
 }
 
-// Create Drizzle instance proxy that initializes on access
 export const db = new Proxy({} as ReturnType<typeof drizzle>, {
-	get(_target, prop) {
+	get(_target, property) {
 		const dbInstance = getDb();
-		return (dbInstance as any)[prop];
+		return Reflect.get(dbInstance, property);
 	}
 });
 
-// Export the raw sqlite instance for migrations if needed
 export { sqlite };

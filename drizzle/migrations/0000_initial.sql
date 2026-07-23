@@ -102,3 +102,18 @@ CREATE TABLE IF NOT EXISTS `user_preferences` (
 	`created_at` integer DEFAULT (unixepoch()) NOT NULL,
 	`updated_at` integer DEFAULT (unixepoch()) NOT NULL
 );
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`level` text NOT NULL,
+	`event` text NOT NULL,
+	`log_type` text DEFAULT 'activity' NOT NULL,
+	`request_id` text,
+	`method` text,
+	`path` text,
+	`route_id` text,
+	`entity_type` text,
+	`entity_id` text,
+	`details` text,
+	`created_at` integer DEFAULT (unixepoch()) NOT NULL
+);

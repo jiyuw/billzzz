@@ -1,6 +1,6 @@
 {
 	"name": "billtrack",
-	"version": "1.5.0",
+	"version": "2.0.0",
 	"description": "Personal finance management application for tracking bills, budgets, and debt",
 	"type": "module",
 	"author": "",
@@ -24,7 +24,8 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"db:reset": "tsx scripts/reset-db.ts"
+		"db:reset": "tsx scripts/reset-db.ts --allow-default-data-dir",
+		"test:db-migrations": "node --import tsx --test src/lib/server/db/migration-integrity.test.ts"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-auto": "^7.0.0",

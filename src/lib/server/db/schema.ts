@@ -13,7 +13,7 @@ export const categories = sqliteTable('categories', {
 
 export const assetTags = sqliteTable('asset_tags', {
 	id: integer('id').primaryKey({ autoIncrement: true }),
-	name: text('name').notNull().unique(),
+	name: text('name').notNull(),
 	type: text('type', { enum: ['house', 'vehicle'] }),
 	isRental: integer('is_rental', { mode: 'boolean' }).notNull().default(false),
 	color: text('color'),
@@ -48,8 +48,6 @@ export const bills = sqliteTable('bills', {
 	name: text('name').notNull(),
 	amount: real('amount').notNull(),
 	dueDate: integer('due_date', { mode: 'timestamp' }).notNull(),
-	cycleStartDate: integer('cycle_start_date', { mode: 'timestamp' }),
-	cycleEndDate: integer('cycle_end_date', { mode: 'timestamp' }),
 	paymentLink: text('payment_link'),
 	categoryId: integer('category_id').references(() => categories.id, { onDelete: 'set null' }),
 	assetTagId: integer('asset_tag_id').references(() => assetTags.id, { onDelete: 'set null' }),
@@ -84,7 +82,6 @@ export const billCycles = sqliteTable('bill_cycles', {
 		.references(() => bills.id, { onDelete: 'cascade' }),
 	startDate: integer('start_date', { mode: 'timestamp' }).notNull(),
 	endDate: integer('end_date', { mode: 'timestamp' }).notNull(),
-	dueDate: integer('due_date', { mode: 'timestamp' }),
 	expectedAmount: real('expected_amount').notNull(), // Snapshot of bill amount when cycle created
 	totalPaid: real('total_paid').notNull().default(0),
 	isPaid: integer('is_paid', { mode: 'boolean' }).notNull().default(false),

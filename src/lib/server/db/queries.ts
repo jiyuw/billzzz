@@ -29,8 +29,6 @@ const billSelect = {
 	name: bills.name,
 	amount: bills.amount,
 	dueDate: bills.dueDate,
-	cycleStartDate: bills.cycleStartDate,
-	cycleEndDate: bills.cycleEndDate,
 	paymentLink: bills.paymentLink,
 	categoryId: bills.categoryId,
 	assetTagId: bills.assetTagId,
@@ -49,10 +47,7 @@ const billSelect = {
 	updatedAt: bills.updatedAt
 };
 
-export type BillWriteInput = Omit<
-	NewBill,
-	'dueDate' | 'cycleStartDate' | 'cycleEndDate'
->;
+export type BillWriteInput = Omit<NewBill, 'dueDate'>;
 
 // ===== CATEGORY QUERIES =====
 
@@ -203,9 +198,7 @@ export function createBill(data: BillWriteInput) {
 		.values({
 			...data,
 			// Deprecated compatibility column retained until the SQLite table is rebuilt.
-			dueDate: new Date(),
-			cycleStartDate: null,
-			cycleEndDate: null
+			dueDate: new Date()
 		})
 		.returning()
 		.get();
