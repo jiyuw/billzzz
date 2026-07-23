@@ -51,14 +51,14 @@ export type BillWithCycle = BillWithLatestCycle;
 
 // Filter options for bills list
 export interface BillFilters {
-	status?: 'all' | 'paid' | 'unpaid' | 'overdue' | 'upcoming';
+	status?: 'all' | 'paid' | 'unpaid';
 	categoryId?: number | null;
 	searchQuery?: string;
 }
 
 // Sort options for bills list
 export interface BillSort {
-	field: 'dueDate' | 'amount' | 'name' | 'createdAt';
+	field: 'amount' | 'name' | 'createdAt';
 	direction: 'asc' | 'desc';
 }
 
@@ -66,16 +66,12 @@ export interface BillSort {
 export interface BillFormData {
 	name: string;
 	amount: number;
-	dueDate: Date;
-	cycleStartDate?: Date;
-	cycleEndDate?: Date;
 	paymentLink?: string;
 	categoryId?: number | null;
 	assetTagId?: number | null;
 	isRecurring: boolean;
 	recurrenceInterval?: number;
 	recurrenceUnit?: RecurrenceUnit;
-	recurrenceDay?: number;
 	isAutopay: boolean;
 	paymentMethodId?: number | null;
 	isVariable?: boolean;

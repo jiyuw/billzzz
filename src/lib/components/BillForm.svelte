@@ -4,7 +4,6 @@
 	import Button from '$lib/components/Button.svelte';
 	import type { PaymentMethod } from '$lib/server/db/schema';
 	import type { AssetTag } from '$lib/server/db/schema';
-	import { formatDateForInput, formatStoredDateForInput } from '$lib/utils/dates';
 
 	interface Props {
 		categories: Category[];
@@ -13,16 +12,12 @@
 		initialData?: {
 			name?: string;
 			amount?: number;
-			dueDate?: Date;
-			cycleStartDate?: Date;
-			cycleEndDate?: Date;
 			paymentLink?: string;
 			categoryId?: number | null;
 			assetTagId?: number | null;
 			isRecurring?: boolean;
 			recurrenceInterval?: number | null;
 			recurrenceUnit?: RecurrenceUnit | null;
-			recurrenceDay?: number | null;
 			isAutopay?: boolean;
 			paymentMethodId?: number | null;
 			isVariable?: boolean;
@@ -32,7 +27,6 @@
 		onSubmit: (data: any) => Promise<void>;
 		onCancel: () => void;
 		submitLabel?: string;
-		isEditing?: boolean;
 	}
 
 	let {
@@ -42,15 +36,11 @@
 		initialData,
 		onSubmit,
 		onCancel,
-		submitLabel = 'Save Bill',
-		isEditing = false
+		submitLabel = 'Save Bill'
 	}: Props = $props();
 
 	let name = $state('');
 	let amount = $state(0);
-	let dueDate = $state(formatDateForInput(new Date()));
-	let cycleStartDate = $state(formatDateForInput(new Date()));
-	let cycleEndDate = $state(formatDateForInput(new Date()));
 	let paymentLink = $state('');
 	let categoryId = $state<number | null>(null);
 	let assetTagId = $state<number | null>(null);
@@ -63,24 +53,10 @@
 	let chargeToTenant = $state(false);
 	let notes = $state('');
 	let isSubmitting = $state(false);
-	let rebuildScope = $state<'future' | 'all'>('future');
-	let rebuildFromCycleStartDate = $state(formatDateForInput(new Date()));
 
 	$effect(() => {
-		const initialDueDate = initialData?.dueDate ?? new Date();
-		const initialCycleStartDate = initialData?.cycleStartDate;
-		const initialCycleEndDate = initialData?.cycleEndDate ?? initialDueDate;
-
 		name = initialData?.name || '';
 		amount = initialData?.amount || 0;
-		dueDate = formatDateForInput(initialDueDate);
-		cycleStartDate = initialCycleStartDate
-			? formatStoredDateForInput(initialCycleStartDate)
-			: formatDateForInput(initialDueDate);
-		cycleEndDate = formatDateForInput(initialCycleEndDate);
-		rebuildFromCycleStartDate = initialCycleStartDate
-			? formatStoredDateForInput(initialCycleStartDate)
-			: formatDateForInput(initialDueDate);
 		paymentLink = initialData?.paymentLink || '';
 		categoryId = initialData?.categoryId || null;
 		assetTagId = initialData?.assetTagId || null;
@@ -113,13 +89,6 @@
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
-		const effectiveCycleStartDate = isRecurring ? cycleStartDate : dueDate;
-		const effectiveCycleEndDate = isRecurring ? cycleEndDate : dueDate;
-
-		if (isRecurring && effectiveCycleStartDate > effectiveCycleEndDate) {
-			alert('Cycle start date must be on or before cycle end date.');
-			return;
-		}
 
 		if (isAutopay && paymentMethodId === null) {
 			alert('Select a payment method before enabling autopay.');
@@ -133,9 +102,6 @@
 			await onSubmit({
 				name,
 				amount: isRecurring && isVariable ? 0 : parseFloat(amount.toString()),
-				dueDate,
-				cycleStartDate: effectiveCycleStartDate,
-				cycleEndDate: effectiveCycleEndDate,
 				paymentLink: paymentLink || null,
 				categoryId,
 				assetTagId,
@@ -143,13 +109,10 @@
 				isRecurring,
 				recurrenceInterval: isRecurring ? recurrenceInterval : null,
 				recurrenceUnit: isRecurring ? recurrenceUnit : null,
-				recurrenceDay: isRecurring ? Number(dueDate.split('-')[2]) : null,
 				isAutopay,
 				paymentMethodId: isAutopay ? paymentMethodId : null,
 				isVariable: isRecurring ? isVariable : false,
-				notes: notes || null,
-				rebuildScope: isEditing ? rebuildScope : undefined,
-				rebuildFromCycleStartDate: isEditing ? rebuildFromCycleStartDate : undefined
+				notes: notes || null
 			});
 		} finally {
 			isSubmitting = false;
@@ -160,27 +123,6 @@
 		'rounded-3xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-800/80';
 	const fieldClass =
 		'mt-1 block w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-gray-900 shadow-sm focus:border-blue-500 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100';
-	const cycleSettingsChanged = $derived.by(() => {
-		if (!isEditing || !isRecurring) return false;
-
-		const initialDueDate = formatDateForInput(initialData?.dueDate ?? new Date());
-		const initialCycleStartDate = initialData?.cycleStartDate
-			? formatStoredDateForInput(initialData.cycleStartDate)
-			: formatDateForInput(initialData?.dueDate ?? new Date());
-		const initialCycleEndDate = formatDateForInput(initialData?.cycleEndDate ?? initialData?.dueDate ?? new Date());
-		const initialIsRecurring = initialData?.isRecurring ?? false;
-		const initialRecurrenceInterval = initialData?.recurrenceInterval ?? 1;
-		const initialRecurrenceUnit = initialData?.recurrenceUnit ?? 'month';
-
-		return (
-			isRecurring !== initialIsRecurring ||
-			dueDate !== initialDueDate ||
-			cycleStartDate !== initialCycleStartDate ||
-			cycleEndDate !== initialCycleEndDate ||
-			recurrenceInterval !== initialRecurrenceInterval ||
-			recurrenceUnit !== initialRecurrenceUnit
-		);
-	});
 </script>
 
 <form onsubmit={handleSubmit} class="space-y-5">
@@ -409,61 +351,14 @@
 					</div>
 				</div>
 
-				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
-					<p class="text-sm font-medium text-gray-900 dark:text-gray-100">Latest cycle anchor</p>
-					<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-						Use the most recent known cycle so future cycles can be calculated correctly.
-					</p>
-					<div class="mt-4 grid gap-4 md:grid-cols-3 md:items-start">
-						<div class="flex flex-col">
-							<label for="cycleStartDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-								Start Date <span class="text-red-500 dark:text-red-400">*</span>
-							</label>
-							<input
-								type="date"
-								id="cycleStartDate"
-								bind:value={cycleStartDate}
-								required={isRecurring}
-								class={fieldClass}
-							/>
-						</div>
-						<div class="flex flex-col">
-							<label for="cycleEndDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-								End Date <span class="text-red-500 dark:text-red-400">*</span>
-							</label>
-							<input
-								type="date"
-								id="cycleEndDate"
-								bind:value={cycleEndDate}
-								required={isRecurring}
-								class={fieldClass}
-							/>
-						</div>
-						<div class="flex flex-col">
-							<label for="dueDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-								Due Date <span class="text-red-500 dark:text-red-400">*</span>
-							</label>
-							<input
-								type="date"
-								id="dueDate"
-								bind:value={dueDate}
-								required
-								class={fieldClass}
-							/>
-							<p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
-								Use the due date for the same cycle above.
-							</p>
-						</div>
-					</div>
-				</div>
-			{:else}
-				<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
-					<p class="text-sm font-medium text-gray-900 dark:text-gray-100">One-time amount and due date</p>
-					<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-						Set the amount and due date for this single bill.
-					</p>
-					<div class="grid gap-4 md:grid-cols-2">
-						<div>
+				{:else}
+					<div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800/40">
+						<p class="text-sm font-medium text-gray-900 dark:text-gray-100">One-time amount</p>
+						<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+							Set the amount, then add the cycle dates from the bill detail page.
+						</p>
+						<div class="mt-4 max-w-md">
+							<div>
 							<label for="amount" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
 								Amount <span class="text-red-500 dark:text-red-400">*</span>
 							</label>
@@ -481,69 +376,11 @@
 									class={`${fieldClass} pl-8`}
 									placeholder="0.00"
 								/>
+								</div>
 							</div>
 						</div>
-
-						<div>
-							<label for="dueDate" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-								Due Date <span class="text-red-500 dark:text-red-400">*</span>
-							</label>
-							<input
-								type="date"
-								id="dueDate"
-								bind:value={dueDate}
-								required
-								class={fieldClass}
-							/>
-						</div>
 					</div>
-				</div>
-			{/if}
-
-			{#if isEditing && isRecurring && cycleSettingsChanged}
-				<div class="rounded-2xl border-2 border-amber-300 bg-amber-50 p-4 shadow-sm ring-1 ring-amber-200 dark:border-amber-700 dark:bg-amber-950/40 dark:ring-amber-900">
-					<p class="text-sm font-medium text-amber-900 dark:text-amber-100">Cycle Recalculation</p>
-					<p class="mt-1 text-sm text-amber-800 dark:text-amber-200">
-						Choose whether this schedule change should affect only this cycle forward, or also rewrite historical cycles.
-					</p>
-					<div class="mt-3 space-y-3">
-						<label class="flex items-start gap-3">
-							<input
-								type="radio"
-								name="rebuildScope"
-								value="future"
-								bind:group={rebuildScope}
-								class="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
-							/>
-							<span>
-								<span class="block text-sm font-medium text-gray-900 dark:text-gray-100">
-									Recalculate this cycle and future cycles
-								</span>
-								<span class="mt-1 block text-sm text-gray-600 dark:text-gray-400">
-									Keep older cycle history as-is and only update the selected cycle forward.
-								</span>
-							</span>
-						</label>
-						<label class="flex items-start gap-3">
-							<input
-								type="radio"
-								name="rebuildScope"
-								value="all"
-								bind:group={rebuildScope}
-								class="mt-1 h-4 w-4 border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600"
-							/>
-							<span>
-								<span class="block text-sm font-medium text-gray-900 dark:text-gray-100">
-									Recalculate all cycles, including history
-								</span>
-								<span class="mt-1 block text-sm text-gray-600 dark:text-gray-400">
-									Use this when the whole billing timeline changed and historical cycles should match the new schedule.
-								</span>
-							</span>
-						</label>
-					</div>
-				</div>
-			{/if}
+				{/if}
 		</div>
 	</section>
 

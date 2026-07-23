@@ -12,7 +12,7 @@ import {
 	type NewAssetTag,
 	type AssetTag
 } from './schema';
-import { eq, and, gte, lte, desc, asc, like, or } from 'drizzle-orm';
+import { eq, and, desc, asc, like, or } from 'drizzle-orm';
 import type { BillFilters, BillSort } from '$lib/types/bill';
 
 const assetTagSelect = {
@@ -48,6 +48,11 @@ const billSelect = {
 	createdAt: bills.createdAt,
 	updatedAt: bills.updatedAt
 };
+
+export type BillWriteInput = Omit<
+	NewBill,
+	'dueDate' | 'cycleStartDate' | 'cycleEndDate'
+>;
 
 // ===== CATEGORY QUERIES =====
 
@@ -148,28 +153,10 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 	const conditions = [];
 
 	if (filters?.status && filters.status !== 'all') {
-		const now = new Date();
-
 		if (filters.status === 'paid') {
 			conditions.push(eq(bills.isPaid, true));
 		} else if (filters.status === 'unpaid') {
 			conditions.push(eq(bills.isPaid, false));
-		} else if (filters.status === 'overdue') {
-			conditions.push(
-				and(
-					eq(bills.isPaid, false),
-					lte(bills.dueDate, now)
-				)
-			);
-		} else if (filters.status === 'upcoming') {
-			const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-			conditions.push(
-				and(
-					eq(bills.isPaid, false),
-					gte(bills.dueDate, now),
-					lte(bills.dueDate, sevenDaysFromNow)
-				)
-			);
 		}
 	}
 
@@ -196,8 +183,7 @@ export function getAllBills(filters?: BillFilters, sort?: BillSort) {
 		const direction = sort.direction === 'asc' ? asc : desc;
 		query = query.orderBy(direction(column)) as any;
 	} else {
-		// Default sort by due date ascending
-		query = query.orderBy(asc(bills.dueDate)) as any;
+		query = query.orderBy(desc(bills.createdAt)) as any;
 	}
 
 	return query.all();
@@ -219,8 +205,18 @@ export function getBillById(id: number) {
 		.get();
 }
 
-export function createBill(data: NewBill) {
-	return db.insert(bills).values(data).returning().get();
+export function createBill(data: BillWriteInput) {
+	return db
+		.insert(bills)
+		.values({
+			...data,
+			// Deprecated compatibility column retained until the SQLite table is rebuilt.
+			dueDate: new Date(),
+			cycleStartDate: null,
+			cycleEndDate: null
+		})
+		.returning()
+		.get();
 }
 
 export function updateBill(id: number, data: Partial<NewBill>) {

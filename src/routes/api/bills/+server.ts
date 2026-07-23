@@ -1,8 +1,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { createBill, getAllBills, getAssetTagById } from '$lib/server/db/queries';
-import type { NewBill } from '$lib/server/db/schema';
-import { normalizeDateForStorage } from '$lib/utils/dates';
+import {
+	createBill,
+	getAllBills,
+	getAssetTagById,
+	type BillWriteInput
+} from '$lib/server/db/queries';
 import { createRequestLogger } from '$lib/server/api-logger';
 
 function parseOptionalId(value: unknown): number | null {
@@ -32,7 +35,7 @@ export const GET: RequestHandler = async (event) => {
 
 		const sort = sortField
 			? {
-					field: sortField || 'dueDate',
+					field: sortField || 'createdAt',
 					direction: sortDirection || 'asc'
 				}
 			: undefined;
@@ -59,7 +62,7 @@ export const POST: RequestHandler = async (event) => {
 		logger.info('request', { body: data });
 
 		// Validate required fields
-		if (!data.name || (!data.isVariable && !data.amount) || !data.dueDate) {
+		if (!data.name || (!data.isVariable && !data.amount)) {
 			logger.warn('validation_failed', {
 				reason: 'missing_required_fields',
 				body: data
@@ -72,37 +75,6 @@ export const POST: RequestHandler = async (event) => {
 				body: data
 			});
 			return json({ error: 'Missing recurrence interval or unit' }, { status: 400 });
-		}
-
-		let dueDate: Date;
-		let cycleStartDate: Date;
-		let cycleEndDate: Date;
-		try {
-			dueDate = normalizeDateForStorage(data.dueDate, { kind: 'date', boundary: 'end' });
-			cycleStartDate = data.cycleStartDate
-				? normalizeDateForStorage(data.cycleStartDate, { kind: 'date', boundary: 'start' })
-				: normalizeDateForStorage(data.dueDate, { kind: 'date', boundary: 'start' });
-			cycleEndDate = data.cycleEndDate
-				? normalizeDateForStorage(data.cycleEndDate, { kind: 'date', boundary: 'end' })
-				: dueDate;
-		} catch (error) {
-			logger.warn('validation_failed', {
-				reason: 'invalid_date_format',
-				dueDate: data.dueDate,
-				cycleStartDate: data.cycleStartDate,
-				cycleEndDate: data.cycleEndDate,
-				error
-			});
-			return json({ error: 'Invalid due date format. Expected YYYY-MM-DD' }, { status: 400 });
-		}
-
-		if (cycleStartDate.getTime() > cycleEndDate.getTime()) {
-			logger.warn('validation_failed', {
-				reason: 'cycle_start_after_cycle_end',
-				body: data,
-				parsedDates: { dueDate, cycleStartDate, cycleEndDate }
-			});
-			return json({ error: 'Cycle start date must be on or before cycle end date' }, { status: 400 });
 		}
 
 		const categoryId = parseOptionalId(data.categoryId);
@@ -118,21 +90,16 @@ export const POST: RequestHandler = async (event) => {
 			return json({ error: 'Autopay bills must include a payment method' }, { status: 400 });
 		}
 
-		const newBill: NewBill = {
+		const newBill: BillWriteInput = {
 			name: data.name,
 			amount: data.isVariable ? 0 : parseFloat(data.amount),
-			dueDate,
-			cycleStartDate,
-			cycleEndDate,
 			paymentLink: data.paymentLink || null,
 			categoryId,
 			assetTagId,
 			isRecurring: data.isRecurring || false,
 			recurrenceInterval: data.recurrenceInterval ? parseInt(data.recurrenceInterval) : null,
 			recurrenceUnit: data.recurrenceUnit || null,
-			recurrenceDay: data.isRecurring
-				? (data.recurrenceDay ? parseInt(data.recurrenceDay) : dueDate.getDate())
-				: null,
+			recurrenceDay: null,
 			chargeToTenant: selectedAsset?.isRental && data.chargeToTenant === true,
 			isPaid: data.isPaid || false,
 			isAutopay: data.isAutopay || false,
