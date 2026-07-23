@@ -2,6 +2,7 @@
 	import type { BillCycle } from '$lib/server/db/schema';
 	import {
 		buildCycleTimeline,
+		cycleLane,
 		cyclePosition,
 		dragBoundaryDate,
 		previewCycleBoundary
@@ -9,7 +10,7 @@
 	import { findCycleConflicts } from '$lib/utils/manual-cycles';
 	import { format } from 'date-fns';
 	import { onDestroy } from 'svelte';
-	import { Plus } from 'lucide-svelte';
+	import { Plus, Trash2 } from 'lucide-svelte';
 	import {
 		decodeStoredCalendarDate,
 		formatStoredDate,
@@ -26,6 +27,7 @@
 			side: 'start' | 'end';
 			date: string;
 		}) => void | Promise<void>;
+		onDelete: (cycleId: number) => void | Promise<void>;
 		isSaving?: boolean;
 		error?: string;
 	}
@@ -36,6 +38,7 @@
 		onSelect,
 		onAdd,
 		onResize,
+		onDelete,
 		isSaving = false,
 		error = ''
 	}: Props = $props();
@@ -249,48 +252,47 @@
 					style={`background-image: repeating-linear-gradient(to right, transparent 0, transparent calc(${100 / timeline.dayCount}% - 1px), rgb(203 213 225) calc(${100 / timeline.dayCount}% - 1px), rgb(203 213 225) ${100 / timeline.dayCount}%);`}
 				></div>
 
-				<div class="relative space-y-2 py-3">
-					{#each [...cycles].sort((a, b) => decodeStoredCalendarDate(a.startDate).getTime() - decodeStoredCalendarDate(b.startDate).getTime()) as cycle}
+				<div class="relative h-24">
+					{#each [...cycles].sort((a, b) => decodeStoredCalendarDate(a.startDate).getTime() - decodeStoredCalendarDate(b.startDate).getTime()) as cycle, index}
 						{@const displayCycle = dragPreview?.id === cycle.id ? dragPreview : cycle}
 						{@const position = cyclePosition(displayCycle, timeline)}
-						<div class="relative h-11">
-							<button
-								type="button"
-								data-preview-cycle={cycle.id}
-								onclick={() => onSelect(cycle.id)}
-								class={`absolute top-1 flex h-9 items-center rounded-xl px-3 text-left text-xs font-semibold text-white shadow-sm transition ${
-									cycle.id === selectedCycleId
-										? 'bg-blue-700 ring-2 ring-blue-300 dark:ring-blue-500'
-										: 'bg-blue-500 hover:bg-blue-600'
-								}`}
-								style={`left: ${position.left}%; width: ${position.width}%`}
-								title={`${formatStoredDate(displayCycle.startDate)} – ${formatStoredDate(displayCycle.endDate)}`}
-							>
-								{#if cycle.id === selectedCycleId}
-									<span
-										role="slider"
-										aria-label="Adjust cycle start"
-										aria-valuenow={displayCycle.startDate.getTime()}
-										tabindex="0"
-										onpointerdown={(event) => beginResize(event, cycle, 'start')}
-										class="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l-xl bg-blue-900/70"
-									></span>
-								{/if}
-								<span class="truncate">
-									{formatStoredDate(displayCycle.startDate, 'MMM d')} – {formatStoredDate(displayCycle.endDate, 'MMM d')}
-								</span>
-								{#if cycle.id === selectedCycleId}
-									<span
-										role="slider"
-										aria-label="Adjust cycle end"
-										aria-valuenow={displayCycle.endDate.getTime()}
-										tabindex="0"
-										onpointerdown={(event) => beginResize(event, cycle, 'end')}
-										class="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r-xl bg-blue-900/70"
-									></span>
-								{/if}
-							</button>
-						</div>
+						<button
+							type="button"
+							data-preview-cycle={cycle.id}
+							data-cycle-lane={cycleLane(index)}
+							onclick={() => onSelect(cycle.id)}
+							class={`absolute flex h-9 items-center rounded-xl px-3 text-left text-xs font-semibold shadow-sm transition ${
+								cycle.id === selectedCycleId
+									? 'z-10 bg-blue-700 text-white ring-2 ring-blue-300 dark:bg-blue-600 dark:ring-blue-500'
+									: 'bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-200 dark:hover:bg-blue-900/60'
+							}`}
+							style={`left: ${position.left}%; top: ${12 + cycleLane(index) * 44}px; width: ${position.width}%`}
+							title={`${formatStoredDate(displayCycle.startDate)} – ${formatStoredDate(displayCycle.endDate)}`}
+						>
+							{#if cycle.id === selectedCycleId}
+								<span
+									role="slider"
+									aria-label="Adjust cycle start"
+									aria-valuenow={displayCycle.startDate.getTime()}
+									tabindex="0"
+									onpointerdown={(event) => beginResize(event, cycle, 'start')}
+									class="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l-xl bg-blue-900/70"
+								></span>
+							{/if}
+							<span class="truncate">
+								{formatStoredDate(displayCycle.startDate, 'MMM d')} – {formatStoredDate(displayCycle.endDate, 'MMM d')}
+							</span>
+							{#if cycle.id === selectedCycleId}
+								<span
+									role="slider"
+									aria-label="Adjust cycle end"
+									aria-valuenow={displayCycle.endDate.getTime()}
+									tabindex="0"
+									onpointerdown={(event) => beginResize(event, cycle, 'end')}
+									class="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r-xl bg-blue-900/70"
+								></span>
+							{/if}
+						</button>
 					{/each}
 				</div>
 			</div>
@@ -298,7 +300,7 @@
 	{/if}
 
 	{#if selectedCycle && selectedDisplayCycle}
-		<div class="mt-5 grid gap-4 border-t border-gray-200 pt-5 sm:grid-cols-2 dark:border-gray-700">
+		<div class="mt-5 grid gap-4 border-t border-gray-200 pt-5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end dark:border-gray-700">
 			<div>
 				<label for="selectedCycleStart" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
 					Start Date
@@ -325,6 +327,16 @@
 					class="mt-1 block w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
 				/>
 			</div>
+			<button
+				type="button"
+				aria-label="Delete selected cycle"
+				title="Delete cycle"
+				onclick={() => onDelete(selectedCycle.id)}
+				disabled={isSaving}
+				class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-red-600 text-white shadow-sm transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				<Trash2 size={17} />
+			</button>
 		</div>
 	{/if}
 </section>

@@ -3,12 +3,18 @@ import assert from 'node:assert/strict';
 
 const {
 	buildCycleTimeline,
+	cycleLane,
 	cyclePosition,
 	dragBoundaryDate,
 	previewCycleBoundary
 } = await import(new URL('./cycle-selector-utils.ts', import.meta.url).href);
 
 const localDate = (year: number, month: number, day: number) => new Date(year, month - 1, day);
+
+test('cycleLane alternates any number of cycles across exactly two lanes', () => {
+	assert.deepEqual([0, 1, 2, 3, 4].map(cycleLane), [0, 1, 0, 1, 0]);
+	assert.equal(cycleLane(101), 1);
+});
 
 test('buildCycleTimeline pads saved cycles to full surrounding months', () => {
 	const timeline = buildCycleTimeline(

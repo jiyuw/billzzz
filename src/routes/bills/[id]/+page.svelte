@@ -231,6 +231,25 @@
 		}
 	}
 
+	async function deleteCycle(cycleId: number) {
+		if (!confirm('Delete this cycle?')) return;
+		isSavingCycle = true;
+		cycleError = '';
+		try {
+			const response = await fetch(`/api/bills/${bill.id}/cycles/${cycleId}`, {
+				method: 'DELETE'
+			});
+			const result = await response.json().catch(() => null);
+			if (!response.ok) {
+				cycleError = result?.error ?? 'Failed to delete cycle.';
+				return;
+			}
+			await invalidateAll();
+		} finally {
+			isSavingCycle = false;
+		}
+	}
+
 	function openAddPayment() {
 		editingPayment = null;
 		isPaymentModalOpen = true;
@@ -457,6 +476,7 @@
 			onSelect={selectCycle}
 			onAdd={openAddCycle}
 			onResize={resizeCycle}
+			onDelete={deleteCycle}
 			isSaving={isSavingCycle}
 			error={cycleError}
 		/>

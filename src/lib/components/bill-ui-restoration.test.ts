@@ -80,11 +80,34 @@ test('cycle selector renders drag date as an in-timeline tooltip without layout 
 	assert.match(cycleSelectorSource, /aria-live="polite"/);
 	assert.match(cycleSelectorSource, /pointerPercent/);
 	assert.match(cycleSelectorSource, /absolute.*z-/);
-	assert.match(cycleSelectorSource, /import \{ Plus \}/);
+	assert.match(cycleSelectorSource, /import \{ Plus, Trash2 \}/);
 	assert.match(cycleSelectorSource, /pointercancel/);
 	assert.doesNotMatch(cycleSelectorSource, /class="mt-4 text-sm font-medium text-blue-700/);
 	assert.doesNotMatch(cycleSelectorSource, /restorePreview/);
 	assert.doesNotMatch(cycleSelectorSource, /previewBar\.style/);
+});
+
+test('cycle selector uses two lanes and stronger selected color', () => {
+	assert.match(cycleSelectorSource, /cycleLane\(index\)/);
+	assert.match(cycleSelectorSource, /data-cycle-lane=/);
+	assert.match(cycleSelectorSource, /h-24/);
+	assert.match(cycleSelectorSource, /bg-blue-100 text-blue-800 hover:bg-blue-200/);
+	assert.match(cycleSelectorSource, /bg-blue-700 text-white/);
+	assert.doesNotMatch(cycleSelectorSource, /space-y-2/);
+});
+
+test('cycle selector exposes icon-only confirmed cycle deletion', () => {
+	assert.match(cycleSelectorSource, /Trash2/);
+	assert.match(cycleSelectorSource, /aria-label="Delete selected cycle"/);
+	assert.match(cycleSelectorSource, /title="Delete cycle"/);
+	assert.match(cycleSelectorSource, /onDelete\(selectedCycle\.id\)/);
+	assert.match(detailSource, /async function deleteCycle/);
+	assert.match(detailSource, /confirm\(/);
+	assert.match(
+		detailSource,
+		/method:\s*'DELETE'/
+	);
+	assert.match(detailSource, /onDelete=\{deleteCycle\}/);
 });
 
 test('cycle selector, standalone viewer, and payment modal share one selected cycle', () => {

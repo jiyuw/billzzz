@@ -4,6 +4,22 @@ All notable changes to this project should be documented in this file.
 
 The format is intentionally simple and release-focused so it can double as GitHub release notes.
 
+## [2.0.1] - 2026-07-23
+
+### Changed
+
+- Limited the cycle selector timeline to two alternating lanes so its height stays compact regardless of cycle count.
+- Lightened unselected cycle bars and strengthened the selected-cycle color for clearer visual focus.
+
+### Added
+
+- Added a red icon-only delete action beside the selected cycle dates, with confirmation and existing backend protections for linked payments.
+
+### Notes
+
+- Release tag: `v2.0.1`
+- App version: `2.0.1`
+
 
 ## [2.0.0] - 2026-07-23
 

@@ -28,6 +28,10 @@ export type CycleTimeline = {
 	}>;
 };
 
+export function cycleLane(index: number): 0 | 1 {
+	return Math.abs(Math.trunc(index)) % 2 === 0 ? 0 : 1;
+}
+
 export function buildCycleTimeline(
 	cycles: CycleRange[],
 	today = new Date()
