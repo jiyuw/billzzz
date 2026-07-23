@@ -1,6 +1,10 @@
 import type { PageServerLoad } from './$types';
 import { error } from '@sveltejs/kit';
-import { getBillWithCurrentCycle, getCyclesForBill, getPaymentsForBill } from '$lib/server/db/bill-queries';
+import {
+	getBillWithLatestCycle,
+	getCyclesForBill,
+	getPaymentsForBill
+} from '$lib/server/db/bill-queries';
 import { getAllCategories, getAllPaymentMethods, getAllAssetTags } from '$lib/server/db/queries';
 
 export const load: PageServerLoad = async ({ params }) => {
@@ -10,7 +14,7 @@ export const load: PageServerLoad = async ({ params }) => {
 		throw error(400, 'Invalid bill ID');
 	}
 
-	const billWithCycle = await getBillWithCurrentCycle(id);
+	const billWithCycle = await getBillWithLatestCycle(id);
 
 	if (!billWithCycle) {
 		throw error(404, 'Bill not found');
