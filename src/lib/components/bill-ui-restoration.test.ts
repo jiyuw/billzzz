@@ -62,6 +62,17 @@ test('detail restores standalone cycle viewer and keeps payment history chart-on
 	);
 });
 
+test('linked payments keep date inline and use colored icon actions', () => {
+	assert.match(detailSource, /Pencil/);
+	assert.match(detailSource, /Trash2/);
+	assert.match(detailSource, /text-blue-600/);
+	assert.match(detailSource, /text-red-600/);
+	assert.doesNotMatch(
+		detailSource,
+		/<\/p>\s*<p[^>]*>\s*\{formatStoredDate\(payment\.paymentDate\)\}/
+	);
+});
+
 test('cycle selector renders drag date as an in-timeline tooltip without layout shift', () => {
 	assert.match(cycleSelectorSource, /dragPreview/);
 	assert.match(cycleSelectorSource, /aria-live="polite"/);

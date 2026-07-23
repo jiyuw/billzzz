@@ -38,7 +38,9 @@
 		Smartphone,
 		Shirt,
 		Dog,
-		Heart
+		Heart,
+		Pencil,
+		Trash2
 	} from 'lucide-svelte';
 
 	let { data }: { data: PageData } = $props();
@@ -527,20 +529,32 @@
 					<div class="mt-3 space-y-3">
 						{#each selectedPayments as payment}
 							<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
-								<div>
-									<p class="font-semibold text-gray-900 dark:text-gray-100">
+								<p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+									<span class="font-semibold text-gray-900 dark:text-gray-100">
 										{formatCurrency(payment.amount)}
-									</p>
-									<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+									</span>
+									<span class="text-sm text-gray-500 dark:text-gray-400">
 										{formatStoredDate(payment.paymentDate)}
 										{payment.notes ? ` • ${payment.notes}` : ''}
-									</p>
-								</div>
+									</span>
+								</p>
 								<div class="flex gap-2">
-									<Button variant="ghost" size="sm" onclick={() => openEditPayment(payment)}>
+									<Button
+										variant="ghost"
+										size="sm"
+										class="gap-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
+										onclick={() => openEditPayment(payment)}
+									>
+										<Pencil size={15} />
 										Edit
 									</Button>
-									<Button variant="ghost" size="sm" onclick={() => deletePayment(payment)}>
+									<Button
+										variant="ghost"
+										size="sm"
+										class="gap-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+										onclick={() => deletePayment(payment)}
+									>
+										<Trash2 size={15} />
 										Delete
 									</Button>
 								</div>
