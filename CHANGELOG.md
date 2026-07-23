@@ -5,6 +5,33 @@ All notable changes to this project should be documented in this file.
 The format is intentionally simple and release-focused so it can double as GitHub release notes.
 
 
+## [2.0.0] - 2026-07-23
+
+### Added
+
+- Added fully manual bill-cycle management with a calendar-style selector, draggable linked boundaries, saved-cycle review, and explicit cycle selection for payments.
+- Added a standalone cycle viewer showing paid amounts and linked payments while preserving the existing dashboard, bill summary, and payment-history chart layouts.
+- Added database migration integration coverage for fresh databases, tracked v1.4+ databases, missing migration metadata, unsupported legacy schemas, and safe reset behavior.
+
+### Changed
+
+- Removed automatic current-cycle calculation and future-cycle prediction. Bill frequency is now descriptive and only seeds an adjustable placeholder when creating a cycle.
+- Removed cycle and due-date questions from bill creation; cycles are created manually and payments must be assigned to an explicit saved cycle.
+- Changed paid-cycle actions to always allow adding another payment, supporting multiple payments per cycle.
+
+### Fixed
+
+- Rebuilt the payment-cycle foreign key as `ON DELETE NO ACTION` so cycles with linked payments cannot be deleted accidentally.
+- Made database initialization deterministic and idempotent while preserving existing bills, cycles, payments, rental notifications, conflicting dates, gaps, and overlaps.
+- Restored the established bill-card and detail-page UI while improving cycle drag feedback and compact linked-payment actions.
+
+### Notes
+
+- Release tag: `v2.0.0`
+- App version: `2.0.0`
+- This major release changes cycle management from automatic prediction to explicit manual control.
+
+
 ## [1.5.0] - 2026-06-25
 
 ### Added
