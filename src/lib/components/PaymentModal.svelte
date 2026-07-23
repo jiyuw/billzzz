@@ -11,7 +11,7 @@
 		isOpen: boolean;
 		bill: BillWithCategory | null;
 		cycles?: BillCycle[];
-		focusCycleId?: number | null;
+		selectedCycleId?: number | null;
 		existingPayment?: BillPayment | null;
 		onConfirm: (data: {
 			amount: number;
@@ -26,7 +26,7 @@
 		isOpen = $bindable(),
 		bill,
 		cycles = [],
-		focusCycleId = null,
+		selectedCycleId = null,
 		existingPayment = null,
 		onConfirm,
 		onCancel
@@ -37,7 +37,7 @@
 	let paymentDate = $state('');
 	let notes = $state('');
 	let availableCycles = $state<BillCycle[]>([]);
-	let selectedCycleId = $state<number | null>(null);
+	let paymentCycleId = $state<number | null>(null);
 	const isEditing = $derived(existingPayment !== null);
 
 	// Update amount when bill changes
@@ -48,7 +48,7 @@
 			amount = existingPayment.amount;
 			paymentDate = formatStoredDateForInput(existingPayment.paymentDate);
 			notes = existingPayment.notes ?? '';
-			selectedCycleId = existingPayment.cycleId;
+			paymentCycleId = existingPayment.cycleId;
 			return;
 		}
 
@@ -63,9 +63,9 @@
 		if (cycles.length > 0) {
 			const normalized = normalizePaymentCycles(cycles);
 			availableCycles = normalized;
-			selectedCycleId = getInitialSelectedCycleId({
+			paymentCycleId = getInitialSelectedCycleId({
 				cycles: normalized,
-				focusCycleId,
+				selectedCycleId,
 				existingPaymentCycleId: existingPayment?.cycleId ?? null
 			});
 			return;
@@ -78,9 +78,9 @@
 				const data = (await response.json()) as BillCycle[];
 				const normalized = normalizePaymentCycles(data);
 				availableCycles = normalized;
-				selectedCycleId = getInitialSelectedCycleId({
+				paymentCycleId = getInitialSelectedCycleId({
 					cycles: normalized,
-					focusCycleId,
+					selectedCycleId,
 					existingPaymentCycleId: existingPayment?.cycleId ?? null
 				});
 			} catch (error) {
@@ -97,7 +97,7 @@
 			await onConfirm({
 				amount: parseFloat(amount.toString()),
 				paymentDate,
-				cycleId: selectedCycleId,
+				cycleId: paymentCycleId,
 				notes: notes.trim() || undefined
 			});
 		} finally {
@@ -107,7 +107,7 @@
 </script>
 
 {#if bill}
-	<Modal bind:isOpen onClose={onCancel} title={isEditing ? 'Edit Payment' : 'Confirm Payment'}>
+	<Modal bind:isOpen onClose={onCancel} title={isEditing ? 'Edit Payment' : 'Add Payment'}>
 		<form onsubmit={handleSubmit} class="space-y-4">
 			<div>
 				{#if availableCycles.length > 0}
@@ -116,7 +116,7 @@
 					</label>
 					<select
 						id="paymentCycle"
-						bind:value={selectedCycleId}
+						bind:value={paymentCycleId}
 						required
 						class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 mb-4"
 					>
@@ -133,7 +133,7 @@
 					{#if isEditing}
 						Update the recorded payment for <span class="font-semibold text-gray-900">{bill.name}</span>.
 					{:else}
-						You're marking <span class="font-semibold text-gray-900">{bill.name}</span> as paid.
+						Record a payment for <span class="font-semibold text-gray-900">{bill.name}</span>.
 					{/if}
 				</p>
 
@@ -200,12 +200,12 @@
 					type="submit"
 					variant="primary"
 					size="md"
-					disabled={isSubmitting}
+					disabled={isSubmitting || paymentCycleId === null}
 				>
 					{#if isSubmitting}
 						{isEditing ? 'Saving...' : 'Confirming...'}
 					{:else}
-						{isEditing ? 'Save Payment' : 'Confirm Payment'}
+						{isEditing ? 'Save Payment' : 'Add Payment'}
 					{/if}
 				</Button>
 			</div>

@@ -25,9 +25,14 @@ export const POST: RequestHandler = async (event) => {
 		const id = parseInt(params.id);
 		const data = await request.json();
 		logger.info('request', { billId: id, body: data });
+		const cycleId = Number.parseInt(String(data.cycleId), 10);
+		if (Number.isNaN(cycleId)) {
+			return json({ error: 'A saved cycle is required' }, { status: 400 });
+		}
 
 		const payment = await createPayment({
 			billId: id,
+			cycleId,
 			amount: parseFloat(data.amount),
 			paymentDate: data.paymentDate
 				? normalizeDateForStorage(data.paymentDate, { kind: 'date', boundary: 'start' })
