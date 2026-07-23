@@ -67,6 +67,8 @@ test('linked payments keep date inline and use colored icon actions', () => {
 	assert.match(detailSource, /Trash2/);
 	assert.match(detailSource, /text-blue-600/);
 	assert.match(detailSource, /text-red-600/);
+	assert.match(detailSource, /rounded-2xl border[^"]*px-3 py-2/);
+	assert.match(detailSource, /size="xs"/);
 	assert.doesNotMatch(
 		detailSource,
 		/<\/p>\s*<p[^>]*>\s*\{formatStoredDate\(payment\.paymentDate\)\}/

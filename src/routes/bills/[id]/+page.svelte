@@ -526,9 +526,9 @@
 						No payments have been linked to this cycle.
 					</p>
 				{:else}
-					<div class="mt-3 space-y-3">
+					<div class="mt-3 space-y-2">
 						{#each selectedPayments as payment}
-							<div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 p-4 dark:border-gray-700">
+							<div class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-gray-200 px-3 py-2 dark:border-gray-700">
 								<p class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
 									<span class="font-semibold text-gray-900 dark:text-gray-100">
 										{formatCurrency(payment.amount)}
@@ -541,20 +541,20 @@
 								<div class="flex gap-2">
 									<Button
 										variant="ghost"
-										size="sm"
-										class="gap-2 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
+										size="xs"
+										class="gap-1.5 text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:hover:text-blue-300"
 										onclick={() => openEditPayment(payment)}
 									>
-										<Pencil size={15} />
+										<Pencil size={14} />
 										Edit
 									</Button>
 									<Button
 										variant="ghost"
-										size="sm"
-										class="gap-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
+										size="xs"
+										class="gap-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30 dark:hover:text-red-300"
 										onclick={() => deletePayment(payment)}
 									>
-										<Trash2 size={15} />
+										<Trash2 size={14} />
 										Delete
 									</Button>
 								</div>

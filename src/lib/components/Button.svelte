@@ -3,7 +3,7 @@
 
 	interface Props {
 		variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
-		size?: 'sm' | 'md' | 'lg';
+		size?: 'xs' | 'sm' | 'md' | 'lg';
 		type?: 'button' | 'submit' | 'reset';
 		disabled?: boolean;
 		fullWidth?: boolean;
@@ -40,6 +40,7 @@
 	};
 
 	const sizeClasses = {
+		xs: 'px-2 py-1 text-xs min-h-8',
 		sm: 'px-4 py-2.5 text-sm min-h-11',
 		md: 'px-5 py-3 text-sm min-h-11',
 		lg: 'px-6 py-3 text-base min-h-12'
