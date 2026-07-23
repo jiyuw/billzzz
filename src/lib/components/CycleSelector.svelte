@@ -1,14 +1,15 @@
 <script lang="ts">
 	import type { BillCycle } from '$lib/server/db/schema';
-	import Button from '$lib/components/Button.svelte';
 	import {
 		buildCycleTimeline,
 		cyclePosition,
+		dragBoundaryDate,
 		previewCycleBoundary
 	} from './cycle-selector-utils';
 	import { findCycleConflicts } from '$lib/utils/manual-cycles';
-	import { addDays, format } from 'date-fns';
+	import { format } from 'date-fns';
 	import { onDestroy } from 'svelte';
+	import { Plus } from 'lucide-svelte';
 	import {
 		decodeStoredCalendarDate,
 		formatStoredDate,
@@ -50,6 +51,7 @@
 		startDate: Date;
 		endDate: Date;
 		side: 'start' | 'end';
+		pointerPercent: number;
 	} | null>(null);
 	let activeDragCleanup: (() => void) | null = null;
 	onDestroy(() => activeDragCleanup?.());
@@ -59,11 +61,28 @@
 			: selectedCycle
 	);
 
-	function dateAtPointer(event: PointerEvent, container: HTMLElement): Date {
+	function previewAtPointer(
+		event: PointerEvent,
+		container: HTMLElement,
+		boundaryDate: Date,
+		originClientX: number
+	) {
 		const rect = container.getBoundingClientRect();
 		const fraction = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
-		const index = Math.min(Math.round(fraction * timeline.dayCount), timeline.dayCount - 1);
-		return addDays(timeline.startDate, index);
+		const unclampedDate = dragBoundaryDate(
+			boundaryDate,
+			originClientX,
+			event.clientX,
+			rect.width / timeline.dayCount
+		);
+		const timestamp = Math.min(
+			Math.max(unclampedDate.getTime(), timeline.startDate.getTime()),
+			timeline.endDate.getTime()
+		);
+		return {
+			date: new Date(timestamp),
+			pointerPercent: fraction * 100
+		};
 	}
 
 	function beginResize(
@@ -77,12 +96,21 @@
 			'[data-cycle-timeline]'
 		) as HTMLElement | null;
 		if (!container) return;
+		const originClientX = event.clientX;
+		const boundaryDate = decodeStoredCalendarDate(
+			side === 'start' ? cycle.startDate : cycle.endDate
+		);
 
 		const handleMove = (moveEvent: PointerEvent) => {
-			const nextDate = dateAtPointer(moveEvent, container);
+			const { date: nextDate, pointerPercent } = previewAtPointer(
+				moveEvent,
+				container,
+				boundaryDate,
+				originClientX
+			);
 			const previewCycle = previewCycleBoundary(cycle, side, nextDate);
 			if (!previewCycle) return;
-			dragPreview = { ...previewCycle, side };
+			dragPreview = { ...previewCycle, side, pointerPercent };
 		};
 
 		const cleanup = () => {
@@ -99,13 +127,18 @@
 
 		const handleUp = async (upEvent: PointerEvent) => {
 			cleanup();
-			const nextDate = dateAtPointer(upEvent, container);
+			const { date: nextDate, pointerPercent } = previewAtPointer(
+				upEvent,
+				container,
+				boundaryDate,
+				originClientX
+			);
 			const previewCycle = previewCycleBoundary(cycle, side, nextDate);
 			if (!previewCycle) {
 				dragPreview = null;
 				return;
 			}
-			dragPreview = { ...previewCycle, side };
+			dragPreview = { ...previewCycle, side, pointerPercent };
 			try {
 				await onResize({
 					cycleId: cycle.id,
@@ -144,9 +177,15 @@
 				Select a cycle to inspect it. Drag only the left or right handle to adjust a boundary.
 			</p>
 		</div>
-		<Button variant="primary" size="sm" onclick={onAdd} disabled={isSaving}>
-			Add Cycle
-		</Button>
+		<button
+			type="button"
+			onclick={onAdd}
+			disabled={isSaving}
+			class="inline-flex min-h-9 items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+		>
+			<Plus size={16} class="text-blue-600 dark:text-blue-400" />
+			<span>Add Cycle</span>
+		</button>
 	</div>
 
 	{#if conflicts.length > 0}
@@ -159,17 +198,6 @@
 		<div class="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
 			{error}
 		</div>
-	{/if}
-
-	{#if dragPreview}
-		<p
-			aria-live="polite"
-			class="mt-4 text-sm font-medium text-blue-700 dark:text-blue-300"
-		>
-			Dragging {dragPreview.side} to {formatStoredDate(
-				dragPreview.side === 'start' ? dragPreview.startDate : dragPreview.endDate
-			)}
-		</p>
 	{/if}
 
 	{#if cycles.length === 0}
@@ -186,6 +214,25 @@
 				class="relative"
 				style={`width: ${timelineWidth}px`}
 			>
+				{#if dragPreview}
+					<div
+						aria-hidden="true"
+						class="pointer-events-none absolute bottom-0 top-9 z-20 w-px bg-blue-500/60"
+						style={`left: ${dragPreview.pointerPercent}%`}
+					></div>
+					<div
+						aria-live="polite"
+						class="pointer-events-none absolute top-10 z-30 -translate-x-1/2 rounded-md bg-gray-900 px-2 py-1 text-xs font-semibold whitespace-nowrap text-white shadow-lg dark:bg-gray-100 dark:text-gray-900"
+						style={`left: clamp(44px, ${dragPreview.pointerPercent}%, calc(100% - 44px))`}
+					>
+						{formatStoredDate(
+							dragPreview.side === 'start'
+								? dragPreview.startDate
+								: dragPreview.endDate
+						)}
+					</div>
+				{/if}
+
 				<div class="flex h-9 border-b border-gray-200 dark:border-gray-700">
 					{#each timeline.months as month}
 						<div

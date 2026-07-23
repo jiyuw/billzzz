@@ -1,9 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-const { buildCycleTimeline, cyclePosition, previewCycleBoundary } = await import(
-	new URL('./cycle-selector-utils.ts', import.meta.url).href
-);
+const {
+	buildCycleTimeline,
+	cyclePosition,
+	dragBoundaryDate,
+	previewCycleBoundary
+} = await import(new URL('./cycle-selector-utils.ts', import.meta.url).href);
 
 const localDate = (year: number, month: number, day: number) => new Date(year, month - 1, day);
 
@@ -119,5 +122,19 @@ test('previewCycleBoundary rejects an inverted cycle range', () => {
 	assert.equal(
 		previewCycleBoundary(cycle, 'end', localDate(2026, 7, 9)),
 		null
+	);
+});
+
+test('dragBoundaryDate preserves the boundary on pointer down and shifts by whole days', () => {
+	const boundary = localDate(2026, 7, 20);
+
+	assert.deepEqual(dragBoundaryDate(boundary, 240, 240, 18), boundary);
+	assert.deepEqual(
+		dragBoundaryDate(boundary, 240, 258, 18),
+		localDate(2026, 7, 21)
+	);
+	assert.deepEqual(
+		dragBoundaryDate(boundary, 240, 222, 18),
+		localDate(2026, 7, 19)
 	);
 });

@@ -174,8 +174,6 @@
 			</div>
 		</div>
 
-		<div class="mb-3 min-h-[28px]"></div>
-
 		<div class="grid grid-cols-2 gap-3 text-sm">
 			<div>
 				<span class="text-gray-500 dark:text-gray-400">Amount:</span>

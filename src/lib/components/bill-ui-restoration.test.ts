@@ -28,6 +28,7 @@ test('dashboard bill card keeps the original card and action layout', () => {
 	assert.match(billCardSource, /title="Delete bill"/);
 	assert.doesNotMatch(billCardSource, /StatusIndicator/);
 	assert.doesNotMatch(billCardSource, /status="paid"/);
+	assert.doesNotMatch(billCardSource, /min-h-\[28px\]/);
 });
 
 test('bill detail keeps the original header actions and summary card', () => {
@@ -43,26 +44,41 @@ test('bill detail keeps the original header actions and summary card', () => {
 	);
 });
 
-test('detail payment history retains its chart and dropdown viewer', () => {
+test('detail restores standalone cycle viewer and keeps payment history chart-only', () => {
 	assert.match(detailSource, /import LineChart/);
 	assert.match(detailSource, /<LineChart/);
 	assert.match(detailSource, /Payment History/);
-	assert.match(detailSource, /id="historyCycleSelect"/);
-	assert.doesNotMatch(detailSource, />Cycle Viewer</);
+	assert.match(detailSource, />\s*Cycle Viewer\s*</);
+	assert.match(detailSource, /Linked Payments/);
+	assert.match(detailSource, /No payment/);
+	assert.doesNotMatch(detailSource, /historyCycleSelect/);
+	assert.doesNotMatch(detailSource, /historyStats/);
+	assert.doesNotMatch(detailSource, />Avg</);
+	assert.doesNotMatch(detailSource, /\{#if historyChartPoints\.length > 0\}/);
+	assert.ok(
+		detailSource.indexOf('<CycleSelector') < detailSource.indexOf('Cycle Viewer') &&
+			detailSource.indexOf('Cycle Viewer') < detailSource.indexOf('Payment History'),
+		'standalone Cycle Viewer should sit between selector and Payment History'
+	);
 });
 
-test('cycle selector uses reactive drag preview instead of restoring inline DOM styles', () => {
+test('cycle selector renders drag date as an in-timeline tooltip without layout shift', () => {
 	assert.match(cycleSelectorSource, /dragPreview/);
 	assert.match(cycleSelectorSource, /aria-live="polite"/);
+	assert.match(cycleSelectorSource, /pointerPercent/);
+	assert.match(cycleSelectorSource, /absolute.*z-/);
+	assert.match(cycleSelectorSource, /import \{ Plus \}/);
 	assert.match(cycleSelectorSource, /pointercancel/);
+	assert.doesNotMatch(cycleSelectorSource, /class="mt-4 text-sm font-medium text-blue-700/);
 	assert.doesNotMatch(cycleSelectorSource, /restorePreview/);
 	assert.doesNotMatch(cycleSelectorSource, /previewBar\.style/);
 });
 
-test('cycle selector, history viewer, and payment modal share one selected cycle', () => {
+test('cycle selector, standalone viewer, and payment modal share one selected cycle', () => {
 	assert.doesNotMatch(detailSource, /selectedHistoryCycleId/);
-	assert.match(detailSource, /value=\{selectedCycleId/);
-	assert.match(detailSource, /onchange=.*selectCycle/);
+	assert.match(detailSource, /const selectedCycle = \$derived/);
+	assert.match(detailSource, /selectedPayments/);
+	assert.match(detailSource, /\{selectedCycleId\}/);
 });
 
 test('dashboard payment modal ignores stale cycle requests between bills', () => {

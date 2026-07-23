@@ -1,4 +1,5 @@
 import {
+	addDays,
 	differenceInCalendarDays,
 	eachMonthOfInterval,
 	endOfMonth,
@@ -82,6 +83,17 @@ export function cyclePosition(
 		left: (leftDays / timeline.dayCount) * 100,
 		width: (cycleDays / timeline.dayCount) * 100
 	};
+}
+
+export function dragBoundaryDate(
+	boundaryDate: Date,
+	originClientX: number,
+	clientX: number,
+	dayWidth: number
+): Date {
+	if (dayWidth <= 0) return decodeStoredCalendarDate(boundaryDate);
+	const dayDelta = Math.round((clientX - originClientX) / dayWidth);
+	return addDays(decodeStoredCalendarDate(boundaryDate), dayDelta);
 }
 
 export function previewCycleBoundary(
