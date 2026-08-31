@@ -2,7 +2,7 @@
  * Date utility functions to handle timezone-safe date operations
  */
 
-import { endOfDay, format, isValid, startOfDay } from 'date-fns';
+import { format, isValid, startOfDay } from 'date-fns';
 
 /**
  * Parses a date-only string (YYYY-MM-DD) as local midnight instead of UTC midnight.
@@ -91,7 +91,7 @@ export function parseLocalDateTime(dateTimeString: string): Date {
 
 /**
  * Converts mixed incoming date values into a Date for storage.
- * Date-only values are normalized in local time before being stored as UTC instants.
+ * Date-only values use UTC midnight as a timezone-independent calendar-day encoding.
  */
 export function normalizeDateForStorage(
 	value: Date | string,
@@ -112,7 +112,7 @@ export function normalizeDateForStorage(
 		return date;
 	}
 
-	return options.boundary === 'end' ? endOfDay(date) : startOfDay(date);
+	return encodeStoredCalendarDate(date);
 }
 
 /**
@@ -134,9 +134,9 @@ export function formatDateForInput(date: Date): string {
 
 /**
  * Formats a stored calendar date while supporting both storage conventions found
- * in existing databases:
- * - legacy date-only values stored at UTC midnight
- * - newer values normalized to a local start/end-of-day boundary
+ * in databases:
+ * - canonical date-only values stored at UTC midnight
+ * - historical values stored at the server's local start/end-of-day boundary
  */
 export function formatStoredDate(date: Date, pattern = 'MMM d, yyyy'): string {
 	return format(decodeStoredCalendarDate(date), pattern);
@@ -144,7 +144,7 @@ export function formatStoredDate(date: Date, pattern = 'MMM d, yyyy'): string {
 
 /**
  * Decodes a persisted date boundary into the local calendar day the user
- * selected. Legacy rows used UTC midnight; newer rows use local boundaries.
+ * selected. Canonical rows use UTC midnight; historical rows use local boundaries.
  */
 export function decodeStoredCalendarDate(date: Date): Date {
 	const isLegacyUtcMidnight =
@@ -155,6 +155,21 @@ export function decodeStoredCalendarDate(date: Date): Date {
 	return isLegacyUtcMidnight
 		? new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
 		: startOfDay(date);
+}
+
+/**
+ * Encodes a calendar date as UTC midnight so a server and browser in different
+ * timezones still agree on the selected YYYY-MM-DD value.
+ */
+export function encodeStoredCalendarDate(date: Date): Date {
+	const calendarDate = decodeStoredCalendarDate(date);
+	return new Date(
+		Date.UTC(
+			calendarDate.getFullYear(),
+			calendarDate.getMonth(),
+			calendarDate.getDate()
+		)
+	);
 }
 
 /**

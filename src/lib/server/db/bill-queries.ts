@@ -9,9 +9,12 @@ import type {
 	BillWithLatestCycle
 } from '$lib/types/bill';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { endOfDay, startOfDay } from 'date-fns';
+import { addDays } from 'date-fns';
 import { getLatestCycle, getLinkedBoundaryDates } from '$lib/utils/manual-cycles';
-import { decodeStoredCalendarDate } from '$lib/utils/dates';
+import {
+	decodeStoredCalendarDate,
+	encodeStoredCalendarDate
+} from '$lib/utils/dates';
 
 export class ManualCycleError extends Error {
 	constructor(
@@ -39,6 +42,14 @@ function addComputedFields(cycle: BillCycle): BillCycleWithComputed {
 		...cycle,
 		remaining,
 		percentPaid
+	};
+}
+
+function normalizeCycleCalendarDates(cycle: BillCycle): BillCycle {
+	return {
+		...cycle,
+		startDate: encodeStoredCalendarDate(cycle.startDate),
+		endDate: encodeStoredCalendarDate(cycle.endDate)
 	};
 }
 
@@ -75,7 +86,8 @@ export async function getLatestCycleForBill(
 		.from(billCycles)
 		.where(eq(billCycles.billId, billId));
 
-	return getLatestCycle(result) ?? undefined;
+	const latest = getLatestCycle(result);
+	return latest ? normalizeCycleCalendarDates(latest) : undefined;
 }
 
 export async function getBillWithLatestCycle(
@@ -131,20 +143,22 @@ export async function getCyclesForBill(billId: number): Promise<BillCycle[]> {
 		.select()
 		.from(billCycles)
 		.where(eq(billCycles.billId, billId));
-	return cycles.sort((left, right) => {
-		const byEnd =
-			decodeStoredCalendarDate(right.endDate).getTime() -
-			decodeStoredCalendarDate(left.endDate).getTime();
-		return byEnd || right.id - left.id;
-	});
+	return cycles
+		.sort((left, right) => {
+			const byEnd =
+				decodeStoredCalendarDate(right.endDate).getTime() -
+				decodeStoredCalendarDate(left.endDate).getTime();
+			return byEnd || right.id - left.id;
+		})
+		.map(normalizeCycleCalendarDates);
 }
 
 export async function createManualCycle(
 	billId: number,
 	input: { startDate: Date; endDate: Date }
 ): Promise<BillCycle> {
-	const startDate = startOfDay(decodeStoredCalendarDate(input.startDate));
-	const endDate = endOfDay(decodeStoredCalendarDate(input.endDate));
+	const startDate = encodeStoredCalendarDate(input.startDate);
+	const endDate = encodeStoredCalendarDate(input.endDate);
 	if (startDate.getTime() > endDate.getTime()) {
 		throw new ManualCycleError(
 			'Cycle start date must be on or before end date',
@@ -167,8 +181,9 @@ export async function createManualCycle(
 			.all();
 		const latest = getLatestCycle(savedCycles);
 		if (latest) {
-			const expectedStart = decodeStoredCalendarDate(latest.endDate);
-			expectedStart.setDate(expectedStart.getDate() + 1);
+			const expectedStart = encodeStoredCalendarDate(
+				addDays(decodeStoredCalendarDate(latest.endDate), 1)
+			);
 			if (startDate.getTime() !== expectedStart.getTime()) {
 				throw new ManualCycleError(
 					'New cycles must start the day after the latest cycle',
@@ -231,11 +246,11 @@ export async function updateManualCycleBoundary(
 				.set(
 					side === 'start'
 						? {
-								startDate: startOfDay(linked.current.startDate),
+								startDate: encodeStoredCalendarDate(linked.current.startDate),
 								updatedAt: new Date()
 							}
 						: {
-								endDate: endOfDay(linked.current.endDate),
+								endDate: encodeStoredCalendarDate(linked.current.endDate),
 								updatedAt: new Date()
 							}
 				)
@@ -247,11 +262,11 @@ export async function updateManualCycleBoundary(
 					.set(
 						side === 'start'
 							? {
-									endDate: endOfDay(linked.adjacent.endDate),
+									endDate: encodeStoredCalendarDate(linked.adjacent.endDate),
 									updatedAt: new Date()
 								}
 							: {
-									startDate: startOfDay(linked.adjacent.startDate),
+									startDate: encodeStoredCalendarDate(linked.adjacent.startDate),
 									updatedAt: new Date()
 								}
 					)

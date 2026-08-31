@@ -225,6 +225,7 @@
 				cycleError = result?.error ?? 'Failed to adjust cycle.';
 				return;
 			}
+			selectCycle(input.cycleId);
 			await invalidateAll();
 		} finally {
 			isSavingCycle = false;

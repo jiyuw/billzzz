@@ -7,8 +7,14 @@ const {
 	getLatestCycle,
 	getLinkedBoundaryDates
 } = await import(new URL('./manual-cycles.ts', import.meta.url).href);
+const { normalizeDateForStorage } = await import(new URL('./dates.ts', import.meta.url).href);
 
 const localDate = (year: number, month: number, day: number) => new Date(year, month - 1, day);
+
+function restoreTimezone(timezone: string | undefined) {
+	if (timezone === undefined) delete process.env.TZ;
+	else process.env.TZ = timezone;
+}
 
 test('findCycleConflicts reports gaps and overlaps without changing the input order', () => {
 	const cycles = [
@@ -150,4 +156,78 @@ test('legacy UTC-midnight boundaries keep their selected calendar days', () => {
 			}
 		}
 	);
+});
+
+test('contiguous cycles created by the server do not overlap in a browser timezone', () => {
+	const originalTimezone = process.env.TZ;
+
+	try {
+		process.env.TZ = 'America/Chicago';
+		const cycles = [
+			{
+				id: 1,
+				startDate: normalizeDateForStorage('2026-10-17', {
+					kind: 'date',
+					boundary: 'start'
+				}),
+				endDate: normalizeDateForStorage('2026-11-16', {
+					kind: 'date',
+					boundary: 'end'
+				})
+			},
+			{
+				id: 2,
+				startDate: normalizeDateForStorage('2026-11-17', {
+					kind: 'date',
+					boundary: 'start'
+				}),
+				endDate: normalizeDateForStorage('2026-12-16', {
+					kind: 'date',
+					boundary: 'end'
+				})
+			}
+		];
+
+		process.env.TZ = 'America/Los_Angeles';
+		assert.deepEqual(findCycleConflicts(cycles), []);
+	} finally {
+		restoreTimezone(originalTimezone);
+	}
+});
+
+test('contiguous cycle dates remain adjacent across daylight-saving transitions', () => {
+	for (const [endDate, nextStartDate] of [
+		['2026-03-07', '2026-03-08'],
+		['2026-10-31', '2026-11-01']
+	]) {
+		const leftEnd = new Date(`${endDate}T00:00:00.000Z`);
+		const rightStart = new Date(`${nextStartDate}T00:00:00.000Z`);
+
+		assert.deepEqual(
+			findCycleConflicts([
+				{ id: 1, startDate: new Date('2026-01-01T00:00:00.000Z'), endDate: leftEnd },
+				{ id: 2, startDate: rightStart, endDate: new Date('2026-12-31T00:00:00.000Z') }
+			]),
+			[]
+		);
+	}
+});
+
+test('boundary updates keep the next cycle one calendar day later across DST', () => {
+	const updated = getLinkedBoundaryDates({
+		side: 'end',
+		selected: {
+			id: 1,
+			startDate: localDate(2026, 2, 1),
+			endDate: localDate(2026, 3, 7)
+		},
+		adjacent: {
+			id: 2,
+			startDate: localDate(2026, 3, 8),
+			endDate: localDate(2026, 3, 31)
+		},
+		date: localDate(2026, 3, 8)
+	});
+
+	assert.deepEqual(updated.adjacent?.startDate, localDate(2026, 3, 9));
 });

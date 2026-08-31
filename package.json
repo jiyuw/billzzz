@@ -1,6 +1,6 @@
 {
 	"name": "billtrack",
-	"version": "2.0.1",
+	"version": "2.0.2",
 	"description": "Personal finance management application for tracking bills, budgets, and debt",
 	"type": "module",
 	"author": "",

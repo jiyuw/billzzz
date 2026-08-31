@@ -117,6 +117,18 @@ test('cycle selector, standalone viewer, and payment modal share one selected cy
 	assert.match(detailSource, /\{selectedCycleId\}/);
 });
 
+test('resizing a historical cycle preserves it as the selected cycle', () => {
+	const resizeHandler =
+		detailSource.match(/async function resizeCycle[\s\S]*?async function deleteCycle/)?.[0] ?? '';
+
+	assert.match(resizeHandler, /selectCycle\(input\.cycleId\)/);
+	assert.ok(
+		resizeHandler.indexOf('selectCycle(input.cycleId)') <
+			resizeHandler.indexOf('await invalidateAll()'),
+		'the edited cycle must be persisted in selection before refreshed cycle data arrives'
+	);
+});
+
 test('dashboard payment modal ignores stale cycle requests between bills', () => {
 	assert.match(paymentModalSource, /cycleRequestId/);
 	assert.match(paymentModalSource, /availableCycles = \[\]/);

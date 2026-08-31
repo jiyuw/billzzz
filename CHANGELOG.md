@@ -4,6 +4,19 @@ All notable changes to this project should be documented in this file.
 
 The format is intentionally simple and release-focused so it can double as GitHub release notes.
 
+## [2.0.2] - 2026-08-31
+
+### Fixed
+
+- Preserved exact cycle calendar dates across different server and browser timezones, including existing cycle rows stored with historical local-time boundaries.
+- Removed the apparent one-day overlap between adjacent cycles caused by timezone conversion of cycle start dates.
+- Kept the edited historical cycle selected after saving a boundary change instead of jumping back to the latest cycle.
+
+### Notes
+
+- Release tag: `v2.0.2`
+- App version: `2.0.2`
+
 ## [2.0.1] - 2026-07-23
 
 ### Changed
