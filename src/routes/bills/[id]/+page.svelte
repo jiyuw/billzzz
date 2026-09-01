@@ -1,8 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import type { BillPayment } from '$lib/server/db/schema';
-	import { goto, invalidateAll, replaceState } from '$app/navigation';
-	import { page } from '$app/state';
+	import { goto, invalidateAll } from '$app/navigation';
 	import Button from '$lib/components/Button.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import BillForm from '$lib/components/BillForm.svelte';
@@ -48,6 +47,12 @@
 	const bill = $derived(data.bill);
 	const cycles = $derived(data.cycles);
 	const payments = $derived(data.payments);
+	function getInitialBillId() {
+		return data.bill.id;
+	}
+	function getInitialSelectedCycleId() {
+		return getLatestCycle(data.cycles)?.id ?? null;
+	}
 	function compareCycleStart(left: { id: number; startDate: Date }, right: { id: number; startDate: Date }) {
 		return (
 			decodeStoredCalendarDate(left.startDate).getTime() -
@@ -114,7 +119,6 @@
 		return iconMap[bill.category.icon as keyof typeof iconMap] ?? null;
 	});
 
-	let selectedCycleId = $state<number | null>(null);
 	let isAddingCycle = $state(false);
 	let cycleStartDate = $state('');
 	let cycleEndDate = $state('');
@@ -124,27 +128,17 @@
 	let editingPayment = $state<BillPayment | null>(null);
 	let isEditBillOpen = $state(false);
 	let editError = $state('');
+	let selectedBillId = $state(getInitialBillId());
+	let selectedCycleId = $state(getInitialSelectedCycleId());
 
 	$effect(() => {
-		const cycleParam = page.url.searchParams.get('cycle');
-		const requestedCycleId = Number(cycleParam);
-		if (
-			cycleParam !== null &&
-			Number.isInteger(requestedCycleId) &&
-			requestedCycleId > 0 &&
-			cycles.some((cycle) => cycle.id === requestedCycleId)
-		) {
-			selectedCycleId = requestedCycleId;
-			return;
-		}
+		if (bill.id === selectedBillId) return;
+		selectedBillId = bill.id;
 		selectedCycleId = getLatestCycle(cycles)?.id ?? null;
 	});
 
 	function selectCycle(cycleId: number) {
 		selectedCycleId = cycleId;
-		const url = new URL(page.url);
-		url.searchParams.set('cycle', String(cycleId));
-		replaceState(url, page.state);
 	}
 
 	const selectedCycle = $derived(
@@ -225,7 +219,6 @@
 				cycleError = result?.error ?? 'Failed to adjust cycle.';
 				return;
 			}
-			selectCycle(input.cycleId);
 			await invalidateAll();
 		} finally {
 			isSavingCycle = false;
@@ -245,6 +238,7 @@
 				cycleError = result?.error ?? 'Failed to delete cycle.';
 				return;
 			}
+			selectedCycleId = getLatestCycle(result.cycles ?? [])?.id ?? null;
 			await invalidateAll();
 		} finally {
 			isSavingCycle = false;
@@ -277,6 +271,7 @@
 			body: JSON.stringify(input)
 		});
 		if (!response.ok) return;
+		selectCycle(input.cycleId);
 		isPaymentModalOpen = false;
 		editingPayment = null;
 		await invalidateAll();

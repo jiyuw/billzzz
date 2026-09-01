@@ -4,6 +4,20 @@ All notable changes to this project should be documented in this file.
 
 The format is intentionally simple and release-focused so it can double as GitHub release notes.
 
+## [2.0.3] - 2026-09-01
+
+### Fixed
+
+- Removed URL-driven cycle selection so editing payments or cycle boundaries no longer makes the cycle viewer jump between saved cycles.
+- Kept the intended cycle selected across payment edits, boundary changes, data refreshes, cycle deletion, and navigation between bills.
+- Delayed exact boundary-date saving until the user finishes editing the date field, preventing partial month/day entry from triggering a refresh and moving focus.
+- Protected in-progress date drafts from background refreshes and prevented concurrent boundary drags or stale resize responses from overriding newer user actions.
+
+### Notes
+
+- Release tag: `v2.0.3`
+- App version: `2.0.3`
+
 ## [2.0.2] - 2026-08-31
 
 ### Fixed

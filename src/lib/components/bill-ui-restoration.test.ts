@@ -110,6 +110,28 @@ test('cycle selector exposes icon-only confirmed cycle deletion', () => {
 	assert.match(detailSource, /onDelete=\{deleteCycle\}/);
 });
 
+test('cycle boundary date fields wait for editing to finish before saving', () => {
+	assert.doesNotMatch(cycleSelectorSource, /onchange=.*saveExactBoundary/);
+	assert.match(cycleSelectorSource, /bind:value=\{startDateDraft\}/);
+	assert.match(cycleSelectorSource, /bind:value=\{endDateDraft\}/);
+	assert.match(cycleSelectorSource, /onblur=\{\(\) => finishBoundaryEdit\('start', startDateDraft\)\}/);
+	assert.match(cycleSelectorSource, /onblur=\{\(\) => finishBoundaryEdit\('end', endDateDraft\)\}/);
+	assert.match(cycleSelectorSource, /event\.key === 'Enter'[\s\S]*?event\.currentTarget\.blur\(\)/);
+});
+
+test('cycle boundary drafts survive refreshes and block dragging while editing', () => {
+	assert.match(cycleSelectorSource, /let editingBoundary = \$state<'start' \| 'end' \| null>\(null\)/);
+	assert.match(cycleSelectorSource, /onfocus=\{\(\) => \(editingBoundary = 'start'\)\}/);
+	assert.match(cycleSelectorSource, /onfocus=\{\(\) => \(editingBoundary = 'end'\)\}/);
+	assert.match(cycleSelectorSource, /if \(editingBoundary !== 'start'\)[\s\S]*?startDateDraft =/);
+	assert.match(cycleSelectorSource, /if \(editingBoundary !== 'end'\)[\s\S]*?endDateDraft =/);
+	assert.match(
+		cycleSelectorSource,
+		/function beginResize[\s\S]*?if \(editingBoundary \|\| isSaving\) return;[\s\S]*?event\.preventDefault\(\)/
+	);
+	assert.match(cycleSelectorSource, /aria-disabled=\{isSaving\}/);
+});
+
 test('cycle selector, standalone viewer, and payment modal share one selected cycle', () => {
 	assert.doesNotMatch(detailSource, /selectedHistoryCycleId/);
 	assert.match(detailSource, /const selectedCycle = \$derived/);
@@ -117,15 +139,59 @@ test('cycle selector, standalone viewer, and payment modal share one selected cy
 	assert.match(detailSource, /\{selectedCycleId\}/);
 });
 
-test('resizing a historical cycle preserves it as the selected cycle', () => {
+test('cycle selection has one local source of truth that survives data refreshes', () => {
+	assert.match(
+		detailSource,
+		/let selectedCycleId = \$state\(getInitialSelectedCycleId\(\)\)/
+	);
+	assert.match(detailSource, /function selectCycle[\s\S]*?selectedCycleId\s*=\s*cycleId/);
+	assert.doesNotMatch(detailSource, /page\.url\.searchParams\.get\('cycle'\)/);
+});
+
+test('cycle selection resets only when navigating to a different bill', () => {
+	assert.match(detailSource, /let selectedBillId = \$state\(getInitialBillId\(\)\)/);
+	assert.match(
+		detailSource,
+		/\$effect\(\(\) => \{[\s\S]*?if \(bill\.id === selectedBillId\) return;[\s\S]*?selectedBillId = bill\.id;[\s\S]*?selectedCycleId = getLatestCycle\(cycles\)\?\.id \?\? null;[\s\S]*?\}\)/
+	);
+});
+
+test('cycle selection does not use navigation or URL state', () => {
+	assert.doesNotMatch(detailSource, /import \{ page \} from '\$app\/state'/);
+	assert.doesNotMatch(detailSource, /url\.searchParams\.set\('cycle'/);
+	assert.doesNotMatch(detailSource, /replaceState:\s*true/);
+});
+
+test('resizing a historical cycle never overwrites a newer cycle selection', () => {
 	const resizeHandler =
 		detailSource.match(/async function resizeCycle[\s\S]*?async function deleteCycle/)?.[0] ?? '';
 
-	assert.match(resizeHandler, /selectCycle\(input\.cycleId\)/);
+	assert.doesNotMatch(resizeHandler, /selectCycle\(/);
+});
+
+test('deleting the selected cycle chooses a remaining cycle before data refreshes', () => {
+	const deleteHandler =
+		detailSource.match(/async function deleteCycle[\s\S]*?function openAddPayment/)?.[0] ?? '';
+
+	assert.match(
+		deleteHandler,
+		/selectedCycleId\s*=\s*getLatestCycle\(result\.cycles\s*\?\?\s*\[\]\)\?\.id\s*\?\?\s*null/
+	);
 	assert.ok(
-		resizeHandler.indexOf('selectCycle(input.cycleId)') <
-			resizeHandler.indexOf('await invalidateAll()'),
-		'the edited cycle must be persisted in selection before refreshed cycle data arrives'
+		deleteHandler.indexOf('selectedCycleId =') < deleteHandler.indexOf('await invalidateAll()'),
+		'the deleted selection must be replaced before refreshed cycle data arrives'
+	);
+});
+
+test('saving an edited payment preserves its cycle as the selected cycle', () => {
+	const savePaymentHandler =
+		detailSource.match(/async function savePayment[\s\S]*?async function deletePayment/)?.[0] ?? '';
+
+	assert.match(savePaymentHandler, /selectCycle\(input\.cycleId\)/);
+	assert.ok(
+		savePaymentHandler.indexOf('selectCycle(input.cycleId)') <
+			savePaymentHandler.indexOf('await invalidateAll()'),
+		'the saved payment cycle must be persisted in selection before refreshed data arrives'
 	);
 });
 

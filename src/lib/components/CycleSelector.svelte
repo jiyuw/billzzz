@@ -14,7 +14,8 @@
 	import {
 		decodeStoredCalendarDate,
 		formatStoredDate,
-		formatStoredDateForInput
+		formatStoredDateForInput,
+		parseLocalDate
 	} from '$lib/utils/dates';
 
 	interface Props {
@@ -63,6 +64,29 @@
 			? dragPreview
 			: selectedCycle
 	);
+	let startDateDraft = $state('');
+	let endDateDraft = $state('');
+	let editingBoundary = $state<'start' | 'end' | null>(null);
+	let draftCycleId = $state<number | null>(null);
+
+	$effect(() => {
+		const displayCycleId = selectedDisplayCycle?.id ?? null;
+		const savedStartDate = selectedDisplayCycle
+			? formatStoredDateForInput(selectedDisplayCycle.startDate)
+			: '';
+		const savedEndDate = selectedDisplayCycle
+			? formatStoredDateForInput(selectedDisplayCycle.endDate)
+			: '';
+		if (displayCycleId !== draftCycleId) {
+			draftCycleId = displayCycleId;
+			editingBoundary = null;
+			startDateDraft = savedStartDate;
+			endDateDraft = savedEndDate;
+			return;
+		}
+		if (editingBoundary !== 'start') startDateDraft = savedStartDate;
+		if (editingBoundary !== 'end') endDateDraft = savedEndDate;
+	});
 
 	function previewAtPointer(
 		event: PointerEvent,
@@ -93,6 +117,7 @@
 		cycle: BillCycle,
 		side: 'start' | 'end'
 	) {
+		if (editingBoundary || isSaving) return;
 		event.preventDefault();
 		event.stopPropagation();
 		const container = (event.currentTarget as HTMLElement).closest(
@@ -162,8 +187,31 @@
 	}
 
 	async function saveExactBoundary(side: 'start' | 'end', value: string) {
-		if (!selectedCycle || !value) return;
+		if (!selectedCycle) return;
+		const savedValue = formatStoredDateForInput(
+			side === 'start' ? selectedCycle.startDate : selectedCycle.endDate
+		);
+		if (!value || value === savedValue) {
+			if (side === 'start') startDateDraft = savedValue;
+			else endDateDraft = savedValue;
+			return;
+		}
+		try {
+			parseLocalDate(value);
+		} catch {
+			if (side === 'start') startDateDraft = savedValue;
+			else endDateDraft = savedValue;
+			return;
+		}
 		await onResize({ cycleId: selectedCycle.id, side, date: value });
+	}
+
+	async function finishBoundaryEdit(side: 'start' | 'end', value: string) {
+		try {
+			await saveExactBoundary(side, value);
+		} finally {
+			if (editingBoundary === side) editingBoundary = null;
+		}
 	}
 </script>
 
@@ -273,8 +321,9 @@
 								<span
 									role="slider"
 									aria-label="Adjust cycle start"
+									aria-disabled={isSaving}
 									aria-valuenow={displayCycle.startDate.getTime()}
-									tabindex="0"
+									tabindex={isSaving ? -1 : 0}
 									onpointerdown={(event) => beginResize(event, cycle, 'start')}
 									class="absolute inset-y-0 left-0 w-3 cursor-ew-resize rounded-l-xl bg-blue-900/70"
 								></span>
@@ -286,8 +335,9 @@
 								<span
 									role="slider"
 									aria-label="Adjust cycle end"
+									aria-disabled={isSaving}
 									aria-valuenow={displayCycle.endDate.getTime()}
-									tabindex="0"
+									tabindex={isSaving ? -1 : 0}
 									onpointerdown={(event) => beginResize(event, cycle, 'end')}
 									class="absolute inset-y-0 right-0 w-3 cursor-ew-resize rounded-r-xl bg-blue-900/70"
 								></span>
@@ -308,8 +358,12 @@
 				<input
 					id="selectedCycleStart"
 					type="date"
-					value={formatStoredDateForInput(selectedDisplayCycle.startDate)}
-					onchange={(event) => saveExactBoundary('start', event.currentTarget.value)}
+					bind:value={startDateDraft}
+					onfocus={() => (editingBoundary = 'start')}
+					onblur={() => finishBoundaryEdit('start', startDateDraft)}
+					onkeydown={(event) => {
+						if (event.key === 'Enter') event.currentTarget.blur();
+					}}
 					disabled={isSaving}
 					class="mt-1 block w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
 				/>
@@ -321,8 +375,12 @@
 				<input
 					id="selectedCycleEnd"
 					type="date"
-					value={formatStoredDateForInput(selectedDisplayCycle.endDate)}
-					onchange={(event) => saveExactBoundary('end', event.currentTarget.value)}
+					bind:value={endDateDraft}
+					onfocus={() => (editingBoundary = 'end')}
+					onblur={() => finishBoundaryEdit('end', endDateDraft)}
+					onkeydown={(event) => {
+						if (event.key === 'Enter') event.currentTarget.blur();
+					}}
 					disabled={isSaving}
 					class="mt-1 block w-full rounded-xl border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
 				/>
